@@ -112,6 +112,24 @@ export function getTokenMetadata(mint: string): TokenMetadata | null {
   return metadataCache.get(mint) ?? null;
 }
 
+/**
+ * Search for tokens by name, symbol, or mint address.
+ * Uses the Jupiter Tokens V2 search endpoint.
+ * Results are not cached (search queries are dynamic).
+ */
+export async function searchTokens(
+  query: string,
+  apiKey: string,
+): Promise<TokenMetadata[]> {
+  const url = `${JUPITER_BASE_URL}/tokens/v2/search?query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: jupiterHeaders(apiKey) });
+
+  if (!res.ok) return [];
+
+  const tokens = (await res.json()) as JupiterTokenV2[];
+  return tokens.map(toTokenMetadata);
+}
+
 // --- Token Prices (Jupiter Price V3) ---
 
 /** Raw shape from Jupiter Price V3 endpoint (per OpenAPI spec). */

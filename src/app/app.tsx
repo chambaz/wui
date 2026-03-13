@@ -26,9 +26,14 @@ const SCREEN_KEYS: Record<string, Screen> = {
 export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>("portfolio");
+  const [swapCapturingInput, setSwapCapturingInput] = useState(false);
 
-  useInput((input, key) => {
-    if (key.escape || input === "q") {
+  useInput((input) => {
+    // When the swap screen is capturing text input, don't process
+    // single-key shortcuts (they conflict with typing).
+    if (swapCapturingInput) return;
+
+    if (input === "q") {
       exit();
       return;
     }
@@ -55,7 +60,13 @@ export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
           />
         </Box>
         <Box display={screen === "swap" ? "flex" : "none"} flexDirection="column">
-          <SwapScreen />
+          <SwapScreen
+            walletAddress={wallet?.publicKey ?? null}
+            rpc={rpc}
+            jupiterApiKey={config.jupiterApiKey}
+            isActive={screen === "swap"}
+            onCapturingInputChange={setSwapCapturingInput}
+          />
         </Box>
         <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
           <WalletsScreen />
