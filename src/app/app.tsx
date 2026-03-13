@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Box, useApp, useInput } from "ink";
+import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { Screen } from "../types/screens.js";
 import type { WalletEntry } from "../types/wallet.js";
+import type { AppConfig } from "../config/index.js";
 import Header from "../components/header.js";
 import Footer from "../components/footer.js";
 import PortfolioScreen from "./screens/portfolio-screen.js";
@@ -11,13 +13,9 @@ import WalletsScreen from "./screens/wallets-screen.js";
 interface AppProps {
   wallet: WalletEntry | null;
   rpcConnected: boolean;
+  rpc: Rpc<SolanaRpcApi>;
+  config: AppConfig;
 }
-
-const SCREEN_COMPONENTS: Record<Screen, React.ComponentType> = {
-  portfolio: PortfolioScreen,
-  swap: SwapScreen,
-  wallets: WalletsScreen,
-};
 
 const SCREEN_KEYS: Record<string, Screen> = {
   p: "portfolio",
@@ -25,7 +23,7 @@ const SCREEN_KEYS: Record<string, Screen> = {
   w: "wallets",
 };
 
-export default function App({ wallet, rpcConnected }: AppProps) {
+export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>("portfolio");
 
@@ -40,8 +38,6 @@ export default function App({ wallet, rpcConnected }: AppProps) {
     }
   });
 
-  const ActiveScreen = SCREEN_COMPONENTS[screen];
-
   return (
     <Box flexDirection="column">
       <Header
@@ -50,7 +46,20 @@ export default function App({ wallet, rpcConnected }: AppProps) {
         rpcConnected={rpcConnected}
       />
       <Box borderStyle="single" borderTop={false} flexDirection="column" minHeight={10}>
-        <ActiveScreen />
+        <Box display={screen === "portfolio" ? "flex" : "none"} flexDirection="column">
+          <PortfolioScreen
+            walletAddress={wallet?.publicKey ?? null}
+            rpc={rpc}
+            jupiterApiKey={config.jupiterApiKey}
+            isActive={screen === "portfolio"}
+          />
+        </Box>
+        <Box display={screen === "swap" ? "flex" : "none"} flexDirection="column">
+          <SwapScreen />
+        </Box>
+        <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
+          <WalletsScreen />
+        </Box>
       </Box>
       <Footer activeScreen={screen} />
     </Box>

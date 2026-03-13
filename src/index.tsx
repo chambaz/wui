@@ -20,7 +20,14 @@ async function main() {
 
   const wallet = getActiveWalletEntry();
 
-  render(<App wallet={wallet} rpcConnected={rpcConnected} />);
+  render(
+    <App
+      wallet={wallet}
+      rpcConnected={rpcConnected}
+      rpc={rpc}
+      config={config}
+    />
+  );
 }
 
 main().catch((err: Error) => {
