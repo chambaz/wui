@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
-import { join } from "path";
+import { join, resolve, basename } from "path";
 import { homedir } from "os";
 import {
   createKeyPairSignerFromPrivateKeyBytes,
@@ -11,9 +11,10 @@ const DATA_DIR = join(homedir(), ".walletui");
 const STORE_PATH = join(DATA_DIR, "wallets.json");
 const KEYS_DIR = join(DATA_DIR, "keys");
 
+// --- Storage helpers ---
+
 function ensureDataDir(): void {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  if (!existsSync(KEYS_DIR)) mkdirSync(KEYS_DIR, { recursive: true });
+  mkdirSync(KEYS_DIR, { recursive: true });
 }
 
 function readStore(): WalletStore {
@@ -21,8 +22,7 @@ function readStore(): WalletStore {
   if (!existsSync(STORE_PATH)) {
     return { wallets: [] };
   }
-  const raw = readFileSync(STORE_PATH, "utf-8");
-  return JSON.parse(raw) as WalletStore;
+  return JSON.parse(readFileSync(STORE_PATH, "utf-8")) as WalletStore;
 }
 
 function writeStore(store: WalletStore): void {
@@ -30,13 +30,11 @@ function writeStore(store: WalletStore): void {
   writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
 }
 
-/**
- * Read a Solana CLI keypair file (JSON array of 64 bytes)
- * and return the 32-byte private key seed.
- */
+// --- Keypair helpers ---
+
+/** Read a Solana CLI keypair file (JSON array of 64 bytes). */
 function readKeypairBytes(path: string): Uint8Array {
-  const raw = readFileSync(path, "utf-8");
-  const bytes = new Uint8Array(JSON.parse(raw));
+  const bytes = new Uint8Array(JSON.parse(readFileSync(path, "utf-8")));
   if (bytes.length !== 64) {
     throw new Error(
       `Invalid keypair file: expected 64 bytes, got ${bytes.length}`
@@ -45,15 +43,27 @@ function readKeypairBytes(path: string): Uint8Array {
   return bytes;
 }
 
-/**
- * Get the public key (address) from a keypair file without creating a full signer.
- */
-async function addressFromKeypairFile(path: string): Promise<string> {
+/** Extract the 32-byte private key seed from a 64-byte keypair. */
+function privateKeyFromKeypair(keypairBytes: Uint8Array): Uint8Array {
+  return keypairBytes.slice(0, 32);
+}
+
+/** Create a signer from a keypair file path. */
+async function signerFromKeypairFile(path: string): Promise<KeyPairSigner> {
   const bytes = readKeypairBytes(path);
-  const signer = await createKeyPairSignerFromPrivateKeyBytes(
-    bytes.slice(0, 32)
-  );
-  return signer.address;
+  return createKeyPairSignerFromPrivateKeyBytes(privateKeyFromKeypair(bytes));
+}
+
+/**
+ * Validate a label for use as a wallet name and filename.
+ * Only allows alphanumeric characters, hyphens, and underscores.
+ */
+function validateLabel(label: string): void {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(label)) {
+    throw new Error(
+      "Label must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+    );
+  }
 }
 
 // --- Public API ---
@@ -63,43 +73,42 @@ export function listWallets(): WalletEntry[] {
 }
 
 export function getActiveWalletEntry(): WalletEntry | null {
-  const store = readStore();
-  return store.wallets.find((w) => w.isActive) ?? null;
+  return readStore().wallets.find((w) => w.isActive) ?? null;
 }
 
 export async function getActiveWalletSigner(): Promise<KeyPairSigner | null> {
   const entry = getActiveWalletEntry();
   if (!entry) return null;
-  const bytes = readKeypairBytes(entry.keypairPath);
-  return createKeyPairSignerFromPrivateKeyBytes(bytes.slice(0, 32));
+  return signerFromKeypairFile(entry.keypairPath);
 }
 
 export async function importWallet(
   keypairPath: string,
   label: string
 ): Promise<WalletEntry> {
-  const absolutePath = keypairPath.startsWith("/")
-    ? keypairPath
-    : join(process.cwd(), keypairPath);
+  const absolutePath = resolve(keypairPath);
 
   if (!existsSync(absolutePath)) {
     throw new Error(`Keypair file not found: ${absolutePath}`);
   }
 
-  const publicKey = await addressFromKeypairFile(absolutePath);
+  validateLabel(label);
+  const signer = await signerFromKeypairFile(absolutePath);
   const store = readStore();
 
-  // Check for duplicate
-  if (store.wallets.some((w) => w.publicKey === publicKey)) {
-    throw new Error(`Wallet already imported: ${publicKey}`);
+  if (store.wallets.some((w) => w.publicKey === signer.address)) {
+    throw new Error(`Wallet already imported: ${signer.address}`);
   }
 
-  const isFirst = store.wallets.length === 0;
+  if (store.wallets.some((w) => w.label === label)) {
+    throw new Error(`Label already in use: ${label}`);
+  }
+
   const entry: WalletEntry = {
     label,
-    publicKey,
+    publicKey: signer.address,
     keypairPath: absolutePath,
-    isActive: isFirst,
+    isActive: store.wallets.length === 0,
   };
 
   store.wallets.push(entry);
@@ -108,39 +117,38 @@ export async function importWallet(
 }
 
 export async function createWallet(label: string): Promise<WalletEntry> {
-  ensureDataDir();
+  validateLabel(label);
+  const store = readStore();
 
-  // Generate 32 random bytes as seed
+  if (store.wallets.some((w) => w.label === label)) {
+    throw new Error(`Label already in use: ${label}`);
+  }
+
+  const keypairPath = join(KEYS_DIR, `${label}.json`);
+
+  if (existsSync(keypairPath)) {
+    throw new Error(`Key file already exists: ${basename(keypairPath)}`);
+  }
+
+  // Generate keypair
   const seed = new Uint8Array(32);
   crypto.getRandomValues(seed);
-
-  // Derive signer to get public key bytes
   const signer = await createKeyPairSignerFromPrivateKeyBytes(seed);
+
+  // Save in Solana CLI format: [seed(32) + pubkey(32)]
   const pubBytes = new Uint8Array(
     await crypto.subtle.exportKey("raw", signer.keyPair.publicKey)
   );
-
-  // Save in Solana CLI format: [seed(32) + pubkey(32)]
   const fullKeypair = new Uint8Array(64);
   fullKeypair.set(seed, 0);
   fullKeypair.set(pubBytes, 32);
-
-  const filename = `${label}.json`;
-  const keypairPath = join(KEYS_DIR, filename);
-
-  if (existsSync(keypairPath)) {
-    throw new Error(`Key file already exists: ${keypairPath}`);
-  }
-
   writeFileSync(keypairPath, JSON.stringify(Array.from(fullKeypair)), "utf-8");
 
-  const store = readStore();
-  const isFirst = store.wallets.length === 0;
   const entry: WalletEntry = {
     label,
     publicKey: signer.address,
     keypairPath,
-    isActive: isFirst,
+    isActive: store.wallets.length === 0,
   };
 
   store.wallets.push(entry);
@@ -151,12 +159,10 @@ export async function createWallet(label: string): Promise<WalletEntry> {
 export function switchWallet(labelOrIndex: string | number): WalletEntry {
   const store = readStore();
 
-  let target: WalletEntry | undefined;
-  if (typeof labelOrIndex === "number") {
-    target = store.wallets[labelOrIndex];
-  } else {
-    target = store.wallets.find((w) => w.label === labelOrIndex);
-  }
+  const target =
+    typeof labelOrIndex === "number"
+      ? store.wallets[labelOrIndex]
+      : store.wallets.find((w) => w.label === labelOrIndex);
 
   if (!target) {
     throw new Error(`Wallet not found: ${labelOrIndex}`);
@@ -174,6 +180,7 @@ export function labelWallet(
   currentLabel: string,
   newLabel: string
 ): WalletEntry {
+  validateLabel(newLabel);
   const store = readStore();
   const wallet = store.wallets.find((w) => w.label === currentLabel);
 
@@ -201,7 +208,6 @@ export function deleteWallet(label: string): void {
   const wasActive = store.wallets[index].isActive;
   store.wallets.splice(index, 1);
 
-  // If deleted wallet was active, activate the first remaining wallet
   if (wasActive && store.wallets.length > 0) {
     store.wallets[0].isActive = true;
   }

@@ -11,14 +11,16 @@ async function main() {
 
   const healthy = await checkRpcHealth(rpc);
   if (!healthy) {
-    console.error(
+    throw new Error(
       `Cannot reach RPC at ${config.solanaRpcUrl}\n` +
         `Check your SOLANA_RPC_URL and network connection.`
     );
-    process.exit(1);
   }
 
   render(<App />);
 }
 
-main();
+main().catch((err: Error) => {
+  console.error(err.message);
+  process.exit(1);
+});
