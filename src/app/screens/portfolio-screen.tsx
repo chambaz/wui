@@ -439,7 +439,7 @@ export default function PortfolioScreen({
       {/* Navigation hint */}
       <Box marginTop={1}>
         <Text dimColor>
-          [up/down] navigate  [enter] details  [r] refresh
+          [up/down] navigate  [enter] details
         </Text>
       </Box>
     </Box>

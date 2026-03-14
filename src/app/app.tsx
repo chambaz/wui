@@ -8,6 +8,7 @@ import Header from "../components/header.js";
 import Footer from "../components/footer.js";
 import PortfolioScreen from "./screens/portfolio-screen.js";
 import SwapScreen from "./screens/swap-screen.js";
+import ActivityScreen from "./screens/activity-screen.js";
 import WalletsScreen from "./screens/wallets-screen.js";
 
 interface AppProps {
@@ -20,6 +21,7 @@ interface AppProps {
 const SCREEN_KEYS: Record<string, Screen> = {
   p: "portfolio",
   s: "swap",
+  a: "activity",
   w: "wallets",
 };
 
@@ -66,6 +68,14 @@ export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "swap"}
             onCapturingInputChange={setSwapCapturingInput}
+          />
+        </Box>
+        <Box display={screen === "activity" ? "flex" : "none"} flexDirection="column">
+          <ActivityScreen
+            walletAddress={wallet?.publicKey ?? null}
+            rpc={rpc}
+            jupiterApiKey={config.jupiterApiKey}
+            isActive={screen === "activity"}
           />
         </Box>
         <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
