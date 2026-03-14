@@ -86,7 +86,11 @@ export async function importWallet(
   keypairPath: string,
   label: string
 ): Promise<WalletEntry> {
-  const absolutePath = resolve(keypairPath);
+  // Expand ~ to home directory.
+  const expandedPath = keypairPath.startsWith("~/")
+    ? join(homedir(), keypairPath.slice(2))
+    : keypairPath;
+  const absolutePath = resolve(expandedPath);
 
   if (!existsSync(absolutePath)) {
     throw new Error(`Keypair file not found: ${absolutePath}`);
@@ -126,23 +130,29 @@ export async function createWallet(label: string): Promise<WalletEntry> {
 
   const keypairPath = join(KEYS_DIR, `${label}.json`);
 
+  let signer: KeyPairSigner;
+
   if (existsSync(keypairPath)) {
-    throw new Error(`Key file already exists: ${basename(keypairPath)}`);
+    // Reuse existing keypair file (e.g. from a previously deleted wallet with the same label).
+    signer = await signerFromKeypairFile(keypairPath);
+    if (store.wallets.some((w) => w.publicKey === signer.address)) {
+      throw new Error(`Wallet with this keypair already exists under a different label.`);
+    }
+  } else {
+    // Generate new keypair.
+    const seed = new Uint8Array(32);
+    crypto.getRandomValues(seed);
+    signer = await createKeyPairSignerFromPrivateKeyBytes(seed);
+
+    // Save in Solana CLI format: [seed(32) + pubkey(32)]
+    const pubBytes = new Uint8Array(
+      await crypto.subtle.exportKey("raw", signer.keyPair.publicKey)
+    );
+    const fullKeypair = new Uint8Array(64);
+    fullKeypair.set(seed, 0);
+    fullKeypair.set(pubBytes, 32);
+    writeFileSync(keypairPath, JSON.stringify(Array.from(fullKeypair)), "utf-8");
   }
-
-  // Generate keypair
-  const seed = new Uint8Array(32);
-  crypto.getRandomValues(seed);
-  const signer = await createKeyPairSignerFromPrivateKeyBytes(seed);
-
-  // Save in Solana CLI format: [seed(32) + pubkey(32)]
-  const pubBytes = new Uint8Array(
-    await crypto.subtle.exportKey("raw", signer.keyPair.publicKey)
-  );
-  const fullKeypair = new Uint8Array(64);
-  fullKeypair.set(seed, 0);
-  fullKeypair.set(pubBytes, 32);
-  writeFileSync(keypairPath, JSON.stringify(Array.from(fullKeypair)), "utf-8");
 
   const entry: WalletEntry = {
     label,

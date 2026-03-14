@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Box, useApp, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { Screen } from "../types/screens.js";
 import type { WalletEntry } from "../types/wallet.js";
 import type { AppConfig } from "../config/index.js";
+import { getActiveWalletEntry } from "../wallet/index.js";
 import Header from "../components/header.js";
 import Footer from "../components/footer.js";
 import PortfolioScreen from "./screens/portfolio-screen.js";
@@ -25,15 +26,21 @@ const SCREEN_KEYS: Record<string, Screen> = {
   w: "wallets",
 };
 
-export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
+export default function App({ wallet: initialWallet, rpcConnected, rpc, config }: AppProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>("portfolio");
+  const [wallet, setWallet] = useState<WalletEntry | null>(initialWallet);
   const [swapCapturingInput, setSwapCapturingInput] = useState(false);
+  const [walletsCapturingInput, setWalletsCapturingInput] = useState(false);
+
+  /** Re-read active wallet from disk after wallet operations. */
+  const refreshWallet = useCallback(() => {
+    setWallet(getActiveWalletEntry());
+  }, []);
 
   useInput((input) => {
-    // When the swap screen is capturing text input, don't process
-    // single-key shortcuts (they conflict with typing).
-    if (swapCapturingInput) return;
+    // When a screen is capturing text input, don't process single-key shortcuts.
+    if (swapCapturingInput || walletsCapturingInput) return;
 
     if (input === "q") {
       exit();
@@ -79,7 +86,11 @@ export default function App({ wallet, rpcConnected, rpc, config }: AppProps) {
           />
         </Box>
         <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
-          <WalletsScreen />
+          <WalletsScreen
+            isActive={screen === "wallets"}
+            onWalletChange={refreshWallet}
+            onCapturingInputChange={setWalletsCapturingInput}
+          />
         </Box>
       </Box>
       <Footer activeScreen={screen} />
