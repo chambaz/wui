@@ -20,7 +20,7 @@ export default function Header({
   return (
     <Box paddingX={1} justifyContent="space-between">
       <Box>
-        <Text bold>walletui</Text>
+        <Text bold>wui</Text>
         {walletLabel && publicKey ? (
           <>
             <Text dimColor> | </Text>

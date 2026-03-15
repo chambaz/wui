@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "fs";
 import { join, resolve, basename } from "path";
 import { homedir } from "os";
 import {
@@ -7,13 +7,22 @@ import {
 } from "@solana/kit";
 import type { WalletEntry, WalletStore } from "../types/wallet.js";
 
-const DATA_DIR = join(homedir(), ".walletui");
+const DATA_DIR = join(homedir(), ".wui");
+const LEGACY_DATA_DIR = join(homedir(), ".walletui");
 const STORE_PATH = join(DATA_DIR, "wallets.json");
 const KEYS_DIR = join(DATA_DIR, "keys");
 
 // --- Storage helpers ---
 
+/** Migrate from legacy ~/.walletui/ to ~/.wui/ if needed. */
+function migrateLegacyDir(): void {
+  if (existsSync(LEGACY_DATA_DIR) && !existsSync(DATA_DIR)) {
+    renameSync(LEGACY_DATA_DIR, DATA_DIR);
+  }
+}
+
 function ensureDataDir(): void {
+  migrateLegacyDir();
   mkdirSync(KEYS_DIR, { recursive: true });
 }
 

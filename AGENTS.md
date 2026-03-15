@@ -1,5 +1,6 @@
-# AGENTS.md — walletui
+# AGENTS.md — wui
 
+wui — a wallet UI for your terminal.
 Terminal-native Solana wallet built with TypeScript, React, and Ink (React renderer for CLIs).
 Targets developers and power users who prefer keyboard-driven terminal workflows.
 
@@ -58,13 +59,13 @@ src/
   index.tsx          # Entry point — loads config, checks RPC, renders App
   app/               # Ink app shell, screen routing
     app.tsx           # Root component, keyboard nav, screen switching
-    screens/          # One file per screen (portfolio, swap, wallets)
+    screens/          # One file per screen (portfolio, swap, activity, wallets)
   components/        # Reusable UI components (Header, Footer, Loading)
   wallet/            # Keypair loading, signing, wallet CRUD
-  portfolio/         # Token accounts, balances (stub)
-  pricing/           # Price fetching, caching (stub)
-  swap/              # Quote, build, send (stub)
-  activity/          # Transaction history (stub)
+  portfolio/         # Token accounts, balances
+  pricing/           # Price fetching, token metadata, caching
+  swap/              # Jupiter swap: quote, build, sign, send, confirm
+  activity/          # Transaction history, classification
   rpc/               # RPC client init + health check
   types/             # Shared type definitions
   config/            # Env loading and validation
@@ -144,6 +145,7 @@ src/
 | Package | Purpose |
 |---------|---------|
 | `ink` | React renderer for terminal UIs |
+| `ink-link` | Terminal hyperlinks (OSC 8) |
 | `react` | Component model (v19) |
 | `@solana/kit` | Solana RPC, keypairs, transactions (v2 SDK) |
 | `dotenv` | Environment variable loading |
@@ -152,7 +154,7 @@ src/
 
 ## Data Storage
 
-User data is stored at `~/.walletui/`:
+User data is stored at `~/.wui/` (migrated automatically from `~/.walletui/` if present):
 - `wallets.json` — wallet registry (labels, public keys, paths — NO secrets)
 - `keys/` — generated keypair files (Solana CLI format: 64-byte JSON array)
 

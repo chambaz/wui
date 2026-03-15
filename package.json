@@ -1,10 +1,10 @@
 {
-  "name": "walletui",
+  "name": "wui",
   "version": "0.1.0",
   "description": "A terminal-native Solana wallet for developers and power users",
   "type": "module",
   "bin": {
-    "walletui": "./dist/index.js"
+    "wui": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.tsx",

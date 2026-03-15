@@ -7,10 +7,14 @@ import type { AppConfig } from "../config/index.js";
 import { getActiveWalletEntry } from "../wallet/index.js";
 import Header from "../components/header.js";
 import Footer from "../components/footer.js";
+import Splash from "../components/splash.js";
 import PortfolioScreen from "./screens/portfolio-screen.js";
 import SwapScreen from "./screens/swap-screen.js";
 import ActivityScreen from "./screens/activity-screen.js";
 import WalletsScreen from "./screens/wallets-screen.js";
+
+/** App version. */
+const VERSION = "0.1.0";
 
 interface AppProps {
   wallet: WalletEntry | null;
@@ -54,6 +58,10 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
 
   return (
     <Box flexDirection="column">
+      {/* Splash shown above the app — no delay, always visible */}
+      <Splash version={VERSION} />
+
+      {/* Main app below the splash */}
       <Header
         walletLabel={wallet?.label ?? null}
         publicKey={wallet?.publicKey ?? null}
