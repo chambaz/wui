@@ -167,8 +167,8 @@ export default function WalletsScreen({
         return;
       }
 
-      // Printable characters.
-      if (input && !key.ctrl && !key.meta && input.length === 1) {
+      // Printable characters (supports paste).
+      if (input && !key.ctrl && !key.meta) {
         setTextInput((v) => v + input);
       }
     },

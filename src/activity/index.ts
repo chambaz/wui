@@ -311,7 +311,7 @@ export async function fetchRecentActivity(
       summary,
       timestamp: sig.blockTime ? Number(sig.blockTime) : null,
       success: sig.err === null,
-      error: sig.err ? JSON.stringify(sig.err) : null,
+      error: sig.err ? JSON.stringify(sig.err, (_k, v) => typeof v === "bigint" ? v.toString() : v) : null,
     });
   }
 

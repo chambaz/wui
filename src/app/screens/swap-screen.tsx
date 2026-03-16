@@ -22,6 +22,11 @@ interface SwapScreenProps {
   jupiterApiKey: string;
   isActive: boolean;
   onCapturingInputChange: (capturing: boolean) => void;
+  /** Pre-selected mint from portfolio screen. */
+  preSelectedMint: string | null;
+  onPreSelectedMintConsumed: () => void;
+  /** Called when a swap completes successfully. */
+  onTransactionComplete: () => void;
 }
 
 /** Truncate a mint address for display. */
@@ -44,6 +49,9 @@ export default function SwapScreen({
   jupiterApiKey,
   isActive,
   onCapturingInputChange,
+  preSelectedMint,
+  onPreSelectedMintConsumed,
+  onTransactionComplete,
 }: SwapScreenProps) {
   // --- State ---
   const [step, setStep] = useState<SwapStep>("select-source");
@@ -99,6 +107,18 @@ export default function SwapScreen({
       loadBalances();
     }
   }, [step, balances.length, loadingBalances, error, walletAddress, loadBalances]);
+
+  // Handle pre-selected mint from portfolio.
+  useEffect(() => {
+    if (preSelectedMint && balances.length > 0 && step === "select-source") {
+      const token = balances.find((b) => b.mint === preSelectedMint);
+      if (token) {
+        setSourceToken(token);
+        setStep("select-dest");
+      }
+      onPreSelectedMintConsumed();
+    }
+  }, [preSelectedMint, balances, step, onPreSelectedMintConsumed]);
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -186,6 +206,7 @@ export default function SwapScreen({
       const result = await executeSwap(quote, signer, rpc, jupiterApiKey, setSwapStatus);
       setSwapResult(result);
       setStep("result");
+      if (result.success) onTransactionComplete();
     } catch (err: unknown) {
       setSwapResult({
         success: false,
@@ -198,7 +219,7 @@ export default function SwapScreen({
       });
       setStep("result");
     }
-  }, [quote, rpc, jupiterApiKey]);
+  }, [quote, rpc, jupiterApiKey, onTransactionComplete]);
 
   // --- Reset ---
 
@@ -287,8 +308,8 @@ export default function SwapScreen({
           searchDestToken(next);
           return;
         }
-        // Printable characters for search.
-        if (input && !key.ctrl && !key.meta && input.length === 1) {
+        // Printable characters for search (supports paste).
+        if (input && !key.ctrl && !key.meta) {
           const next = destSearch + input;
           setDestSearch(next);
           searchDestToken(next);
@@ -397,7 +418,7 @@ export default function SwapScreen({
           })}
           {balances.length > 0 && (
             <Box marginTop={1}>
-              <Text dimColor>[up/down] navigate  [enter] select  [esc] back</Text>
+              <Text dimColor>[up/down] navigate  [enter] select</Text>
             </Box>
           )}
         </Box>

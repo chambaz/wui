@@ -11,6 +11,7 @@ interface Shortcut {
 const SHORTCUTS: Shortcut[] = [
   { hotkey: "p", label: "Portfolio", screen: "portfolio" },
   { hotkey: "s", label: "Swap", screen: "swap" },
+  { hotkey: "t", label: "Transfer", screen: "send" },
   { hotkey: "a", label: "Activity", screen: "activity" },
   { hotkey: "w", label: "Wallets", screen: "wallets" },
   { hotkey: "r", label: "Refresh" },

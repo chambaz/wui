@@ -19,6 +19,9 @@ interface PortfolioScreenProps {
   rpc: Rpc<SolanaRpcApi>;
   jupiterApiKey: string;
   isActive: boolean;
+  onSelectedMintChange: (mint: string | null) => void;
+  /** Increment to trigger a data refresh from outside the component. */
+  refreshKey: number;
 }
 
 /** Truncate a mint address for display. */
@@ -131,6 +134,8 @@ export default function PortfolioScreen({
   rpc,
   jupiterApiKey,
   isActive,
+  onSelectedMintChange,
+  refreshKey,
 }: PortfolioScreenProps) {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
@@ -141,6 +146,13 @@ export default function PortfolioScreen({
   const [showDetail, setShowDetail] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [, setTick] = useState(0);
+
+  // Notify parent of selected mint — only when detail drawer is open.
+  useEffect(() => {
+    const selectedMint = showDetail ? (rows[selectedIndex]?.mint ?? null) : null;
+    onSelectedMintChange(selectedMint);
+  }, [selectedIndex, rows, showDetail, onSelectedMintChange]);
+
   const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchInFlight = useRef(false);
 
@@ -193,6 +205,13 @@ export default function PortfolioScreen({
     fetchData(true);
   }, [fetchData]);
 
+  // External refresh trigger (e.g. after swap or transfer).
+  useEffect(() => {
+    if (refreshKey > 0) {
+      fetchData(false);
+    }
+  }, [refreshKey, fetchData]);
+
   // Auto-refresh timer.
   useEffect(() => {
     if (!isActive) {
@@ -239,6 +258,12 @@ export default function PortfolioScreen({
       }
       if (key.downArrow) {
         setSelectedIndex((i) => Math.min(rows.length - 1, i + 1));
+        return;
+      }
+
+      // Close detail drawer.
+      if (key.escape && showDetail) {
+        setShowDetail(false);
         return;
       }
 
@@ -439,7 +464,7 @@ export default function PortfolioScreen({
       {/* Navigation hint */}
       <Box marginTop={1}>
         <Text dimColor>
-          [up/down] navigate  [enter] details
+          [up/down] navigate  [enter] details{showDetail ? "  [esc] close" : ""}
         </Text>
       </Box>
     </Box>

@@ -199,7 +199,7 @@ async function sendAndConfirm(
     if (status) {
       if (status.err) {
         throw new Error(
-          `Transaction failed: ${JSON.stringify(status.err)}`,
+          `Transaction failed: ${JSON.stringify(status.err, (_k, v) => typeof v === "bigint" ? v.toString() : v)}`,
         );
       }
       if (
