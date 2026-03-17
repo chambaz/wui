@@ -20,6 +20,7 @@ import {
   getAddressEncoder,
 } from "@solana/kit";
 import type { TransferRequest, TransferResult } from "../types/transfer.js";
+import { formatTransactionError } from "../errors/index.js";
 
 
 
@@ -152,6 +153,7 @@ function buildTokenTransferInstruction(
 async function sendAndConfirm(
   rpc: Rpc<SolanaRpcApi>,
   signedBase64: ReturnType<typeof getBase64EncodedWireTransaction>,
+  lastValidBlockHeight: bigint,
 ): Promise<string> {
   const signature = await rpc
     .sendTransaction(signedBase64, {
@@ -163,6 +165,14 @@ async function sendAndConfirm(
   const startTime = Date.now();
 
   while (Date.now() - startTime < CONFIRMATION_TIMEOUT_MS) {
+    const blockHeight = await rpc.getBlockHeight().send();
+    if (blockHeight > lastValidBlockHeight) {
+      throw new Error(
+        "Transaction expired before confirmation. " +
+        "The transfer was not executed. Try again.",
+      );
+    }
+
     const { value: statuses } = await rpc
       .getSignatureStatuses([signature])
       .send();
@@ -170,9 +180,7 @@ async function sendAndConfirm(
     const status = statuses[0];
     if (status) {
       if (status.err) {
-        throw new Error(
-          `Transaction failed: ${JSON.stringify(status.err, (_k, v) => typeof v === "bigint" ? v.toString() : v)}`,
-        );
+        throw new Error(formatTransactionError(status.err));
       }
       if (
         status.confirmationStatus === "confirmed" ||
@@ -282,7 +290,7 @@ export async function executeTransfer(
     // Send and confirm.
     currentStep = "sending transaction";
     onStatus?.("Broadcasting transaction...");
-    const signature = await sendAndConfirm(rpc, encoded);
+    const signature = await sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
 
     return {
       success: true,

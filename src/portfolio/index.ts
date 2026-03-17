@@ -84,11 +84,18 @@ export async function fetchAllBalances(
   rpc: Rpc<SolanaRpcApi>,
   walletAddress: string,
 ): Promise<TokenBalance[]> {
-  const [solBalance, splBalances, token2022Balances] = await Promise.all([
-    fetchSolBalance(rpc, walletAddress),
-    fetchTokenAccounts(rpc, walletAddress, TOKEN_PROGRAM_ID),
-    fetchTokenAccounts(rpc, walletAddress, TOKEN_2022_PROGRAM_ID),
-  ]);
+  let solBalance: TokenBalance;
+  let splBalances: TokenBalance[];
+  let token2022Balances: TokenBalance[];
+  try {
+    [solBalance, splBalances, token2022Balances] = await Promise.all([
+      fetchSolBalance(rpc, walletAddress),
+      fetchTokenAccounts(rpc, walletAddress, TOKEN_PROGRAM_ID),
+      fetchTokenAccounts(rpc, walletAddress, TOKEN_2022_PROGRAM_ID),
+    ]);
+  } catch {
+    throw new Error("Could not fetch wallet balances. Check your RPC connection.");
+  }
 
   const all = [solBalance, ...splBalances, ...token2022Balances];
 

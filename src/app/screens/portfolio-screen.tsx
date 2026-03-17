@@ -142,6 +142,7 @@ export default function PortfolioScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -184,13 +185,15 @@ export default function PortfolioScreen({
         setSummary(newSummary);
         setSelectedIndex((prev) => Math.min(prev, Math.max(0, newRows.length - 1)));
         setError(null);
+        setRefreshError(false);
         setLastUpdated(new Date());
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error fetching portfolio";
         if (isInitial) {
           setError(message);
+        } else {
+          setRefreshError(true);
         }
-        // On refresh failure, keep stale data and don't overwrite the error for non-initial loads.
       } finally {
         fetchInFlight.current = false;
         setLoading(false);
@@ -344,6 +347,7 @@ export default function PortfolioScreen({
         <Text bold>Portfolio</Text>
         <Box gap={2}>
           {refreshing && <Text dimColor>refreshing...</Text>}
+          {refreshError && !refreshing && <Text color="yellow">refresh failed</Text>}
           {lastUpdated && !refreshing && (
             <Text dimColor>updated {timeAgo(lastUpdated)}</Text>
           )}

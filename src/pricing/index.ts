@@ -1,4 +1,5 @@
 import type { TokenMetadata, TokenPrice } from "../types/portfolio.js";
+import { fetchWithTimeout } from "../errors/index.js";
 
 const JUPITER_BASE_URL = "https://api.jup.ag";
 
@@ -84,7 +85,7 @@ export async function fetchTokenMetadata(
     batches.map(async (batch) => {
       const query = batch.join(",");
       const url = `${JUPITER_BASE_URL}/tokens/v2/search?query=${query}`;
-      const res = await fetch(url, { headers: jupiterHeaders(apiKey) });
+      const res = await fetchWithTimeout(url, { headers: jupiterHeaders(apiKey) }, "Jupiter API");
 
       if (!res.ok) {
         throw new Error(`Jupiter Tokens API error: ${res.status} ${res.statusText}`);
@@ -121,13 +122,17 @@ export async function searchTokens(
   query: string,
   apiKey: string,
 ): Promise<TokenMetadata[]> {
-  const url = `${JUPITER_BASE_URL}/tokens/v2/search?query=${encodeURIComponent(query)}`;
-  const res = await fetch(url, { headers: jupiterHeaders(apiKey) });
+  try {
+    const url = `${JUPITER_BASE_URL}/tokens/v2/search?query=${encodeURIComponent(query)}`;
+    const res = await fetchWithTimeout(url, { headers: jupiterHeaders(apiKey) }, "Jupiter API");
 
-  if (!res.ok) return [];
+    if (!res.ok) return [];
 
-  const tokens = (await res.json()) as JupiterTokenV2[];
-  return tokens.map(toTokenMetadata);
+    const tokens = (await res.json()) as JupiterTokenV2[];
+    return tokens.map(toTokenMetadata);
+  } catch {
+    return [];
+  }
 }
 
 // --- Token Prices (Jupiter Price V3) ---
@@ -177,7 +182,7 @@ export async function fetchTokenPrices(
     batches.map(async (batch) => {
       const ids = batch.join(",");
       const url = `${JUPITER_BASE_URL}/price/v3?ids=${ids}`;
-      const res = await fetch(url, { headers: jupiterHeaders(apiKey) });
+      const res = await fetchWithTimeout(url, { headers: jupiterHeaders(apiKey) }, "Jupiter API");
 
       if (!res.ok) {
         throw new Error(`Jupiter Price API error: ${res.status} ${res.statusText}`);

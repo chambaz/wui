@@ -8,6 +8,7 @@ import {
   signTransaction,
 } from "@solana/kit";
 import type { SwapQuote, SwapQuoteRequest, SwapResult, RouteStep } from "../types/swap.js";
+import { fetchWithTimeout, formatTransactionError } from "../errors/index.js";
 
 const JUPITER_BASE_URL = "https://api.jup.ag";
 
@@ -79,13 +80,13 @@ export async function getSwapQuote(
   });
 
   const url = `${JUPITER_BASE_URL}/swap/v1/quote?${params}`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { "x-api-key": apiKey },
-  });
+  }, "Jupiter API");
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Jupiter Quote API error: ${res.status} — ${body}`);
+    if (res.status === 429) throw new Error("Jupiter API rate limited. Wait a moment and try again.");
+    throw new Error(`Jupiter quote failed (${res.status}). Try again.`);
   }
 
   const raw = (await res.json()) as JupiterQuoteResponse;
@@ -122,7 +123,7 @@ async function buildSwapTransaction(
   apiKey: string,
 ): Promise<JupiterSwapResponse> {
   const url = `${JUPITER_BASE_URL}/swap/v1/swap`;
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: jupiterHeaders(apiKey),
     body: JSON.stringify({
@@ -136,11 +137,11 @@ async function buildSwapTransaction(
         },
       },
     }),
-  });
+  }, "Jupiter API");
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Jupiter Swap API error: ${res.status} — ${body}`);
+    if (res.status === 429) throw new Error("Jupiter API rate limited. Wait a moment and try again.");
+    throw new Error(`Failed to build swap transaction (${res.status}). Try again.`);
   }
 
   return (await res.json()) as JupiterSwapResponse;
@@ -198,9 +199,7 @@ async function sendAndConfirm(
     const status = statuses[0];
     if (status) {
       if (status.err) {
-        throw new Error(
-          `Transaction failed: ${JSON.stringify(status.err, (_k, v) => typeof v === "bigint" ? v.toString() : v)}`,
-        );
+        throw new Error(formatTransactionError(status.err));
       }
       if (
         status.confirmationStatus === "confirmed" ||

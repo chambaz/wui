@@ -31,7 +31,14 @@ function readStore(): WalletStore {
   if (!existsSync(STORE_PATH)) {
     return { wallets: [] };
   }
-  return JSON.parse(readFileSync(STORE_PATH, "utf-8")) as WalletStore;
+  try {
+    return JSON.parse(readFileSync(STORE_PATH, "utf-8")) as WalletStore;
+  } catch {
+    throw new Error(
+      `Wallet data file is corrupted: ${STORE_PATH}\n` +
+      `Delete or fix the file to continue.`,
+    );
+  }
 }
 
 function writeStore(store: WalletStore): void {
@@ -43,10 +50,16 @@ function writeStore(store: WalletStore): void {
 
 /** Read a Solana CLI keypair file (JSON array of 64 bytes). */
 function readKeypairBytes(path: string): Uint8Array {
-  const bytes = new Uint8Array(JSON.parse(readFileSync(path, "utf-8")));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    throw new Error(`Keypair file is not valid JSON: ${path}`);
+  }
+  const bytes = new Uint8Array(parsed as number[]);
   if (bytes.length !== 64) {
     throw new Error(
-      `Invalid keypair file: expected 64 bytes, got ${bytes.length}`
+      `Invalid keypair file: expected 64 bytes, got ${bytes.length}`,
     );
   }
   return bytes;
