@@ -4,6 +4,7 @@ import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchRecentActivity } from "../../activity/index.js";
 import type { ActivityEntry, ActivityType } from "../../types/activity.js";
+import { copyToClipboard } from "../../clipboard/index.js";
 
 /** Number of transactions to display. */
 const ACTIVITY_LIMIT = 15;
@@ -40,7 +41,7 @@ function typeColor(type: ActivityType): string | undefined {
   switch (type) {
     case "swap": return "magenta";
     case "transfer-in": return "green";
-    case "transfer-out": return "red";
+    case "transfer-out": return "yellow";
     default: return undefined;
   }
 }
@@ -66,6 +67,7 @@ export default function ActivityScreen({
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fetchInFlight = useRef(false);
 
   const loadActivity = useCallback(async () => {
@@ -105,6 +107,13 @@ export default function ActivityScreen({
       }
       if (key.downArrow) {
         setSelectedIndex((i) => Math.min(entries.length - 1, i + 1));
+        return;
+      }
+      if (input === "y" && showDetail && entries[selectedIndex]) {
+        if (copyToClipboard(entries[selectedIndex].signature)) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
         return;
       }
       if (key.return) {
@@ -261,10 +270,11 @@ export default function ActivityScreen({
       )}
 
       {/* Navigation hint */}
-      <Box marginTop={1}>
+      <Box marginTop={1} gap={2}>
         <Text dimColor>
-          [up/down] navigate  [enter] details
+          [up/down] navigate  [enter] details{showDetail ? "  [y] copy tx" : ""}
         </Text>
+        {copied && <Text color="green">copied!</Text>}
       </Box>
     </Box>
   );

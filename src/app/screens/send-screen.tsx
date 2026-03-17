@@ -7,6 +7,7 @@ import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
+import { copyToClipboard } from "../../clipboard/index.js";
 
 type SendStep =
   | "select-token"
@@ -63,6 +64,7 @@ export default function SendScreen({
   const [sendStatus, setSendStatus] = useState("Preparing...");
   const [sendResult, setSendResult] = useState<TransferResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const fetchInFlight = useRef(false);
 
@@ -297,6 +299,13 @@ export default function SendScreen({
 
       // --- Result ---
       if (step === "result") {
+        if (input === "y" && sendResult?.signature) {
+          if (copyToClipboard(sendResult.signature)) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+          return;
+        }
         if (key.return || input === "n") {
           resetSend();
           return;
@@ -419,7 +428,7 @@ export default function SendScreen({
             </Box>
             <Box>
               <Text dimColor>{"Amount:    "}</Text>
-              <Text color="cyan">
+              <Text color="green">
                 {amountInput === "max"
                   ? sourceToken.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })
                   : amountInput}
@@ -481,8 +490,11 @@ export default function SendScreen({
               </Box>
             </>
           )}
-          <Box marginTop={1}>
-            <Text dimColor>[enter/n] new transfer  [esc] back</Text>
+          <Box marginTop={1} gap={2}>
+            <Text dimColor>
+              [enter/n] new transfer{sendResult.success ? "  [y] copy tx" : ""}  [esc] back
+            </Text>
+            {copied && <Text color="green">copied!</Text>}
           </Box>
         </Box>
       )}

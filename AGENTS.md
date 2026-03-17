@@ -1,6 +1,6 @@
 # AGENTS.md — wui
 
-wui — a wallet UI for your terminal.
+wui — Solana wallet for the terminal.
 Terminal-native Solana wallet built with TypeScript, React, and Ink (React renderer for CLIs).
 Targets developers and power users who prefer keyboard-driven terminal workflows.
 
@@ -25,6 +25,7 @@ pnpm start
 
 There is no test framework configured yet. No test files exist.
 When adding tests, follow this convention:
+
 - Use **vitest** (aligns with the ESM + TypeScript + tsup stack).
 - Place test files adjacent to source: `src/wallet/index.test.ts`.
 - Name pattern: `*.test.ts` / `*.test.tsx`.
@@ -45,10 +46,12 @@ Until then, follow the existing code style described below exactly.
 ## Environment Variables
 
 Defined in `.env` (gitignored). See `.env.example`:
+
 ```
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 JUPITER_API_KEY=your_jupiter_api_key_here
 ```
+
 Both are required. The app fails fast at startup if either is missing.
 Never commit `.env` or any file containing secrets.
 
@@ -74,6 +77,7 @@ src/
 ## Architecture Rules
 
 **Dependency direction is strictly enforced:**
+
 - `wallet/`, `swap/`, `portfolio/`, `pricing/`, `activity/`, `rpc/` are service modules.
 - Service modules must NOT import from `app/` or `components/`.
 - Service modules may depend on each other, on `types/`, and on external libraries.
@@ -82,6 +86,7 @@ src/
 ## Code Style
 
 ### Imports
+
 - Use **ESM imports** with explicit `.js` extensions on all local imports (required by the ESM + bundler setup):
   ```ts
   import { loadConfig } from "./config/index.js";
@@ -94,6 +99,7 @@ src/
   ```
 
 ### Naming
+
 - **Files**: lowercase kebab-case (`portfolio-screen.tsx`, `wallet.ts`).
 - **Functions**: camelCase (`loadConfig`, `getActiveWalletEntry`).
 - **Components**: PascalCase, `export default function ComponentName()`.
@@ -102,6 +108,7 @@ src/
 - **Component props**: `interface ComponentNameProps` defined directly above the component.
 
 ### Formatting
+
 - **Indentation**: 2 spaces.
 - **Quotes**: double quotes for strings.
 - **Semicolons**: always.
@@ -109,12 +116,14 @@ src/
 - **Line length**: no hard limit, but keep lines reasonable (~100 chars).
 
 ### Types
+
 - Strict TypeScript — no `any`. Use proper types or `unknown` + narrowing.
 - Define interfaces in `src/types/` for shared types. Colocate component-specific interfaces (like props) in the component file.
 - Use non-null assertion (`!`) sparingly and only after a preceding guard (see `config/index.ts` pattern).
 - Prefer `interface` over `type` for object shapes.
 
 ### Components (Ink/React)
+
 - Functional components only — no classes.
 - Export components as `export default function Name()`.
 - Props interface defined right above the component.
@@ -123,12 +132,13 @@ src/
 - Layout via Ink's flexbox props: `flexDirection`, `paddingX`, `gap`, `justifyContent`, etc.
 
 ### Error Handling
+
 - **Fail fast**: throw `new Error("descriptive message")` with user-actionable text.
 - Error messages should explain what went wrong AND how to fix it:
   ```ts
   throw new Error(
     `Missing required environment variables: ${missing.join(", ")}\n` +
-    `Create a .env file or set them in your shell. See .env.example for reference.`
+      `Create a .env file or set them in your shell. See .env.example for reference.`,
   );
   ```
 - Top-level `main().catch()` in entry point handles uncaught errors, logs `err.message`, and exits with code 1.
@@ -136,25 +146,27 @@ src/
 - Use `try/catch` only where recovery is possible — don't silently swallow errors.
 
 ### Module Pattern
+
 - Each module directory has an `index.ts` barrel file that exports the public API.
 - Keep internal helpers as unexported functions within the module file.
 - Use JSDoc comments (`/** ... */`) for non-obvious public functions.
 
 ## Key Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `ink` | React renderer for terminal UIs |
-| `ink-link` | Terminal hyperlinks (OSC 8) |
-| `react` | Component model (v19) |
+| Package       | Purpose                                     |
+| ------------- | ------------------------------------------- |
+| `ink`         | React renderer for terminal UIs             |
+| `ink-link`    | Terminal hyperlinks (OSC 8)                 |
+| `react`       | Component model (v19)                       |
 | `@solana/kit` | Solana RPC, keypairs, transactions (v2 SDK) |
-| `dotenv` | Environment variable loading |
-| `tsup` | Production bundler (ESM output) |
-| `tsx` | Dev-time TypeScript execution |
+| `dotenv`      | Environment variable loading                |
+| `tsup`        | Production bundler (ESM output)             |
+| `tsx`         | Dev-time TypeScript execution               |
 
 ## Data Storage
 
 User data is stored at `~/.wui/` (migrated automatically from `~/.walletui/` if present):
+
 - `wallets.json` — wallet registry (labels, public keys, paths — NO secrets)
 - `keys/` — generated keypair files (Solana CLI format: 64-byte JSON array)
 

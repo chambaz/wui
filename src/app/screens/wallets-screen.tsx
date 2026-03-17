@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import type { WalletEntry } from "../../types/wallet.js";
+import { copyToClipboard } from "../../clipboard/index.js";
 import {
   listWallets,
   switchWallet,
@@ -129,12 +130,19 @@ export default function WalletsScreen({
           setStep("confirm-delete");
           return;
         }
+        // Copy public key.
+        if (input === "y" && wallets.length > 0) {
+          if (copyToClipboard(wallets[selectedIndex].publicKey)) {
+            showMessage("Address copied", "green");
+          }
+          return;
+        }
         return;
       }
 
       // --- Confirm delete ---
       if (step === "confirm-delete") {
-        if (input === "y") {
+        if (input === "y" || input === "Y") {
           try {
             const target = wallets[selectedIndex];
             deleteWallet(target.label);
@@ -288,7 +296,7 @@ export default function WalletsScreen({
           )}
           <Box marginTop={1}>
             <Text dimColor>
-              [enter] switch  [c] create  [i] import  [l] rename  [d] delete
+              [enter] switch  [y] copy address  [c] create  [i] import  [l] rename  [d] delete
             </Text>
           </Box>
         </Box>

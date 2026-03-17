@@ -3,6 +3,7 @@ import { Box, Text, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../../pricing/index.js";
+import { copyToClipboard } from "../../clipboard/index.js";
 import type {
   PortfolioRow,
   PortfolioSummary,
@@ -143,6 +144,7 @@ export default function PortfolioScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -267,6 +269,15 @@ export default function PortfolioScreen({
       // Close detail drawer.
       if (key.escape && showDetail) {
         setShowDetail(false);
+        return;
+      }
+
+      // Copy mint address when detail drawer is open.
+      if (input === "y" && showDetail && rows[selectedIndex]) {
+        if (copyToClipboard(rows[selectedIndex].mint)) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
         return;
       }
 
@@ -466,10 +477,11 @@ export default function PortfolioScreen({
       )}
 
       {/* Navigation hint */}
-      <Box marginTop={1}>
+      <Box marginTop={1} gap={2}>
         <Text dimColor>
-          [up/down] navigate  [enter] details{showDetail ? "  [esc] close" : ""}
+          [up/down] navigate  [enter] details{showDetail ? "  [y] copy mint  [esc] close" : ""}
         </Text>
+        {copied && <Text color="green">copied!</Text>}
       </Box>
     </Box>
   );

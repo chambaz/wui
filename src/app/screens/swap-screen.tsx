@@ -7,6 +7,7 @@ import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
+import { copyToClipboard } from "../../clipboard/index.js";
 
 type SwapStep =
   | "select-source"
@@ -72,6 +73,7 @@ export default function SwapScreen({
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [searchingTokens, setSearchingTokens] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fetchInFlight = useRef(false);
 
   // Notify parent when text input capture state changes.
@@ -353,6 +355,13 @@ export default function SwapScreen({
 
       // --- Result ---
       if (step === "result") {
+        if (input === "y" && swapResult?.signature) {
+          if (copyToClipboard(swapResult.signature)) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }
+          return;
+        }
         if (key.return || input === "n") {
           resetSwap();
           return;
@@ -602,8 +611,11 @@ export default function SwapScreen({
               </Box>
             </>
           )}
-          <Box marginTop={1}>
-            <Text dimColor>[enter/n] new swap  [esc] back</Text>
+          <Box marginTop={1} gap={2}>
+            <Text dimColor>
+              [enter/n] new swap{swapResult.success ? "  [y] copy tx" : ""}  [esc] back
+            </Text>
+            {copied && <Text color="green">copied!</Text>}
           </Box>
         </Box>
       )}
