@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "fs";
-import { join, resolve, basename } from "path";
+import { join, resolve } from "path";
 import { homedir } from "os";
 import {
   createKeyPairSignerFromPrivateKeyBytes,
@@ -43,7 +43,7 @@ function readStore(): WalletStore {
 
 function writeStore(store: WalletStore): void {
   ensureDataDir();
-  writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
+  writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), { encoding: "utf-8", mode: 0o600 });
 }
 
 // --- Keypair helpers ---
@@ -173,7 +173,7 @@ export async function createWallet(label: string): Promise<WalletEntry> {
     const fullKeypair = new Uint8Array(64);
     fullKeypair.set(seed, 0);
     fullKeypair.set(pubBytes, 32);
-    writeFileSync(keypairPath, JSON.stringify(Array.from(fullKeypair)), "utf-8");
+    writeFileSync(keypairPath, JSON.stringify(Array.from(fullKeypair)), { encoding: "utf-8", mode: 0o600 });
   }
 
   const entry: WalletEntry = {

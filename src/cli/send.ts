@@ -5,8 +5,6 @@ import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../transf
 import type { TransferRequest } from "../types/transfer.js";
 import { bootstrap, printJson } from "./index.js";
 
-const NATIVE_SOL_MINT = "So11111111111111111111111111111111111111112";
-
 export async function sendCommand(args: string[], json: boolean): Promise<void> {
   if (args.length < 3) {
     throw new Error(

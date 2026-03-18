@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
-import type { WalletEntry } from "../../types/wallet.js";
 import { copyToClipboard } from "../../clipboard/index.js";
+import { truncateAddress } from "../../format/index.js";
+import type { WalletEntry } from "../../types/wallet.js";
 import {
   listWallets,
   switchWallet,
@@ -23,12 +24,6 @@ interface WalletsScreenProps {
   isActive: boolean;
   onWalletChange: () => void;
   onCapturingInputChange: (capturing: boolean) => void;
-}
-
-/** Truncate a public key for display. */
-function truncateKey(key: string): string {
-  if (key.length <= 11) return key;
-  return `${key.slice(0, 4)}...${key.slice(-4)}`;
 }
 
 export default function WalletsScreen({
@@ -282,7 +277,7 @@ export default function WalletsScreen({
                     <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
                       {indicator}
                       {w.label.slice(0, 14).padEnd(16)}
-                      {truncateKey(w.publicKey).padEnd(14)}
+                      {truncateAddress(w.publicKey).padEnd(14)}
                     </Text>
                     {w.isActive ? (
                       <Text color="green" bold>active</Text>

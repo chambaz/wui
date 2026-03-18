@@ -21,15 +21,13 @@ import {
 } from "@solana/kit";
 import type { TransferRequest, TransferResult } from "../types/transfer.js";
 import { formatTransactionError } from "../errors/index.js";
-
-
+import { NATIVE_SOL_MINT } from "../format/index.js";
 
 /** Program addresses. */
 const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
-const WRAPPED_SOL_MINT = "So11111111111111111111111111111111111111112";
 
 /** Minimum SOL to keep in wallet for rent + fees. */
 const MIN_SOL_RESERVE_LAMPORTS = 5_000_000n; // 0.005 SOL

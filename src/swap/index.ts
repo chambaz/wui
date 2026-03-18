@@ -9,8 +9,7 @@ import {
 } from "@solana/kit";
 import type { SwapQuote, SwapQuoteRequest, SwapResult, RouteStep } from "../types/swap.js";
 import { fetchWithTimeout, formatTransactionError } from "../errors/index.js";
-
-const JUPITER_BASE_URL = "https://api.jup.ag";
+import { JUPITER_BASE_URL } from "../format/index.js";
 
 /** Default slippage tolerance in basis points (0.5%). */
 export const DEFAULT_SLIPPAGE_BPS = 50;

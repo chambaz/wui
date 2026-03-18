@@ -37,7 +37,7 @@ export function loadConfig(): AppConfig | null {
 export function saveConfig(rpcUrl: string, jupiterApiKey: string): void {
   mkdirSync(DATA_DIR, { recursive: true });
   const content = `SOLANA_RPC_URL=${rpcUrl}\nJUPITER_API_KEY=${jupiterApiKey}\n`;
-  writeFileSync(CONFIG_PATH, content, "utf-8");
+  writeFileSync(CONFIG_PATH, content, { encoding: "utf-8", mode: 0o600 });
 }
 
 /** Path to the config file for display purposes. */

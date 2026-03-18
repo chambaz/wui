@@ -1,20 +1,8 @@
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../pricing/index.js";
-import type { TokenBalance, TokenMetadata, TokenPrice } from "../types/portfolio.js";
 import { bootstrap, printJson, printTable } from "./index.js";
-
-/** Format a USD value for terminal display. */
-function formatUsd(value: number): string {
-  if (value >= 1_000) return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-  if (value >= 0.01) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(6)}`;
-}
-
-/** Format a percentage change with sign. */
-function formatPercent(pct: number): string {
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
-}
+import { formatUsd, formatPercent } from "../format/index.js";
+import type { TokenBalance, TokenMetadata, TokenPrice } from "../types/portfolio.js";
 
 /** Build a portfolio row for display. */
 function buildRow(

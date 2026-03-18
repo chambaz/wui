@@ -1,15 +1,11 @@
 import React from "react";
 import { Box, Text } from "ink";
+import { truncateAddress } from "../format/index.js";
 
 interface HeaderProps {
   walletLabel: string | null;
   publicKey: string | null;
   rpcConnected: boolean;
-}
-
-function truncateAddress(address: string): string {
-  if (address.length <= 11) return address;
-  return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
 export default function Header({

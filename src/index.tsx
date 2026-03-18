@@ -4,13 +4,13 @@ import { render } from "ink";
 import { loadConfig } from "./config/index.js";
 import { initRpc, checkRpcHealth } from "./rpc/index.js";
 import { getActiveWalletEntry } from "./wallet/index.js";
-import type { AppConfig } from "./config/index.js";
 import App from "./app/app.js";
 import Setup from "./app/setup.js";
 import { parseArgs } from "./cli/index.js";
 import { portfolioCommand } from "./cli/portfolio.js";
 import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
+import type { AppConfig } from "./config/index.js";
 
 /** Launch the interactive TUI. */
 async function launchApp(config: AppConfig) {

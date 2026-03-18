@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import { saveConfig, CONFIG_FILE_PATH } from "../config/index.js";
 import { initRpc, checkRpcHealth } from "../rpc/index.js";
+import { fetchWithTimeout } from "../errors/index.js";
 
 type SetupStep = "rpc-url" | "jupiter-key" | "validating" | "done";
 
@@ -37,9 +38,9 @@ export default function Setup({ onComplete }: SetupProps) {
 
     // Validate Jupiter API key (quick test).
     try {
-      const res = await fetch("https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112", {
+      const res = await fetchWithTimeout("https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112", {
         headers: { "x-api-key": jupiterKey },
-      });
+      }, "Jupiter API");
       if (res.status === 401 || res.status === 403) {
         setError("Invalid Jupiter API key. Get one at https://portal.jup.ag");
         setStep("jupiter-key");

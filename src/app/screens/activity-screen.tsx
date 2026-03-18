@@ -3,8 +3,9 @@ import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchRecentActivity } from "../../activity/index.js";
-import type { ActivityEntry, ActivityType } from "../../types/activity.js";
 import { copyToClipboard } from "../../clipboard/index.js";
+import { formatTime } from "../../format/index.js";
+import type { ActivityEntry, ActivityType } from "../../types/activity.js";
 
 /** Number of transactions to display. */
 const ACTIVITY_LIMIT = 15;
@@ -44,16 +45,6 @@ function typeColor(type: ActivityType): string | undefined {
     case "transfer-out": return "yellow";
     default: return undefined;
   }
-}
-
-/** Format a unix timestamp to a relative or short absolute string. */
-function formatTime(unixSeconds: number): string {
-  const diff = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(unixSeconds * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function ActivityScreen({

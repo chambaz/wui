@@ -5,9 +5,10 @@ import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
+import { copyToClipboard } from "../../clipboard/index.js";
+import { truncateAddress, formatAmount } from "../../format/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
-import { copyToClipboard } from "../../clipboard/index.js";
 
 type SendStep =
   | "select-token"
@@ -28,20 +29,6 @@ interface SendScreenProps {
   onPreSelectedMintConsumed: () => void;
   /** Called when a transfer completes successfully. */
   onTransactionComplete: () => void;
-}
-
-/** Truncate an address for display. */
-function truncateAddr(addr: string): string {
-  if (addr.length <= 11) return addr;
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-}
-
-/** Format a token amount. */
-function formatAmount(amount: string, decimals: number): string {
-  const num = Number(amount) / 10 ** decimals;
-  if (num >= 1000) return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (num >= 1) return num.toLocaleString("en-US", { maximumFractionDigits: 4 });
-  return num.toLocaleString("en-US", { maximumFractionDigits: Math.min(decimals, 6) });
 }
 
 export default function SendScreen({
@@ -116,7 +103,7 @@ export default function SendScreen({
 
   /** Get symbol for a mint. */
   function mintSymbol(mint: string): string {
-    return metadata.get(mint)?.symbol ?? truncateAddr(mint);
+    return metadata.get(mint)?.symbol ?? truncateAddress(mint);
   }
 
   const sendInFlight = useRef(false);
@@ -397,7 +384,7 @@ export default function SendScreen({
           </Box>
           <Box>
             <Text dimColor>To: </Text>
-            <Text>{truncateAddr(recipientInput)}</Text>
+            <Text>{truncateAddress(recipientInput)}</Text>
           </Box>
           <Box marginTop={1}>
             <Text dimColor>Available: </Text>
@@ -474,7 +461,7 @@ export default function SendScreen({
                 </Box>
                 <Box>
                   <Text dimColor>{"To:       "}</Text>
-                  <Text>{truncateAddr(sendResult.recipient)}</Text>
+                  <Text>{truncateAddress(sendResult.recipient)}</Text>
                 </Box>
                 <Box>
                   <Text dimColor>{"Tx:       "}</Text>

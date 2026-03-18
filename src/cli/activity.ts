@@ -1,16 +1,6 @@
 import { fetchRecentActivity } from "../activity/index.js";
-import type { ActivityEntry } from "../types/activity.js";
 import { bootstrap, printJson, printTable } from "./index.js";
-
-/** Format a unix timestamp to a relative or short string. */
-function formatTime(unixSeconds: number): string {
-  const diff = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(unixSeconds * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
+import { formatTime } from "../format/index.js";
 
 /** Map activity type to a short label. */
 function typeLabel(type: string): string {

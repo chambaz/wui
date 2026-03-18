@@ -1,7 +1,6 @@
 import type { TokenMetadata, TokenPrice } from "../types/portfolio.js";
 import { fetchWithTimeout } from "../errors/index.js";
-
-const JUPITER_BASE_URL = "https://api.jup.ag";
+import { JUPITER_BASE_URL } from "../format/index.js";
 
 /** Maximum number of mint IDs per Price API request. */
 const PRICE_BATCH_SIZE = 50;
@@ -11,7 +10,7 @@ const PRICE_CACHE_TTL_MS = 30_000;
 
 // --- In-memory caches ---
 
-let metadataCache: Map<string, TokenMetadata> = new Map();
+const metadataCache: Map<string, TokenMetadata> = new Map();
 let metadataCacheTime = 0;
 
 /** Metadata cache is refreshed at most once per session (on first call). */

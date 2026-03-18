@@ -5,9 +5,10 @@ import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
+import { copyToClipboard } from "../../clipboard/index.js";
+import { truncateAddress, formatAmount } from "../../format/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
-import { copyToClipboard } from "../../clipboard/index.js";
 
 type SwapStep =
   | "select-source"
@@ -28,20 +29,6 @@ interface SwapScreenProps {
   onPreSelectedMintConsumed: () => void;
   /** Called when a swap completes successfully. */
   onTransactionComplete: () => void;
-}
-
-/** Truncate a mint address for display. */
-function truncateMint(mint: string): string {
-  if (mint.length <= 11) return mint;
-  return `${mint.slice(0, 4)}...${mint.slice(-4)}`;
-}
-
-/** Format a token amount with appropriate decimals. */
-function formatAmount(amount: string, decimals: number): string {
-  const num = Number(amount) / 10 ** decimals;
-  if (num >= 1000) return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (num >= 1) return num.toLocaleString("en-US", { maximumFractionDigits: 4 });
-  return num.toLocaleString("en-US", { maximumFractionDigits: Math.min(decimals, 6) });
 }
 
 export default function SwapScreen({
@@ -414,7 +401,7 @@ export default function SwapScreen({
           {balances.map((b, i) => {
             const isSelected = i === selectedIndex;
             const meta = metadata.get(b.mint);
-            const symbol = meta?.symbol ?? truncateMint(b.mint);
+            const symbol = meta?.symbol ?? truncateAddress(b.mint);
             return (
               <Box key={b.mint}>
                 <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
@@ -439,7 +426,7 @@ export default function SwapScreen({
           <Box>
             <Text dimColor>From: </Text>
             <Text color="cyan">
-              {metadata.get(sourceToken!.mint)?.symbol ?? truncateMint(sourceToken!.mint)}
+              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
             </Text>
           </Box>
           <Box marginTop={1}>
@@ -480,13 +467,13 @@ export default function SwapScreen({
           <Box>
             <Text dimColor>From: </Text>
             <Text color="cyan">
-              {metadata.get(sourceToken!.mint)?.symbol ?? truncateMint(sourceToken!.mint)}
+              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
             </Text>
           </Box>
           <Box>
             <Text dimColor>To: </Text>
             <Text color="cyan">
-              {destToken?.symbol ?? truncateMint(destMint)}
+              {destToken?.symbol ?? truncateAddress(destMint)}
             </Text>
           </Box>
           <Box marginTop={1}>
@@ -522,14 +509,14 @@ export default function SwapScreen({
               <Text dimColor>{"Sell:      "}</Text>
               <Text>
                 {formatAmount(quote.inAmount, sourceToken!.decimals)}{" "}
-                {metadata.get(quote.inputMint)?.symbol ?? truncateMint(quote.inputMint)}
+                {metadata.get(quote.inputMint)?.symbol ?? truncateAddress(quote.inputMint)}
               </Text>
             </Box>
             <Box>
               <Text dimColor>{"Receive:   "}</Text>
               <Text color="green">
                 {formatAmount(quote.outAmount, destToken?.decimals ?? 6)}{" "}
-                {destToken?.symbol ?? truncateMint(quote.outputMint)}
+                {destToken?.symbol ?? truncateAddress(quote.outputMint)}
               </Text>
             </Box>
             <Box>
@@ -587,14 +574,14 @@ export default function SwapScreen({
                   <Text dimColor>{"Sold:     "}</Text>
                   <Text>
                     {formatAmount(swapResult.inAmount, sourceToken?.decimals ?? 9)}{" "}
-                    {metadata.get(swapResult.inputMint)?.symbol ?? truncateMint(swapResult.inputMint)}
+                    {metadata.get(swapResult.inputMint)?.symbol ?? truncateAddress(swapResult.inputMint)}
                   </Text>
                 </Box>
                 <Box>
                   <Text dimColor>{"Received: "}</Text>
                   <Text color="green">
                     {formatAmount(swapResult.outAmount, destToken?.decimals ?? 6)}{" "}
-                    {destToken?.symbol ?? truncateMint(swapResult.outputMint)}
+                    {destToken?.symbol ?? truncateAddress(swapResult.outputMint)}
                   </Text>
                 </Box>
                 <Box>

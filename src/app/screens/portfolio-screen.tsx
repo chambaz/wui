@@ -4,6 +4,7 @@ import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../../pricing/index.js";
 import { copyToClipboard } from "../../clipboard/index.js";
+import { truncateAddress, formatNumber, formatUsd, formatBalance, formatPercent } from "../../format/index.js";
 import type {
   PortfolioRow,
   PortfolioSummary,
@@ -25,42 +26,6 @@ interface PortfolioScreenProps {
   refreshKey: number;
 }
 
-/** Truncate a mint address for display. */
-function truncateMint(mint: string): string {
-  if (mint.length <= 11) return mint;
-  return `${mint.slice(0, 4)}...${mint.slice(-4)}`;
-}
-
-/** Format a number with commas and fixed decimals. */
-function formatNumber(n: number, decimals: number): string {
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-/** Format a USD value. */
-function formatUsd(value: number): string {
-  if (value >= 1_000_000) return `$${formatNumber(value / 1_000_000, 2)}M`;
-  if (value >= 1_000) return `$${formatNumber(value, 2)}`;
-  if (value >= 1) return `$${formatNumber(value, 2)}`;
-  if (value >= 0.01) return `$${formatNumber(value, 4)}`;
-  return `$${value.toFixed(6)}`;
-}
-
-/** Format a token balance for display. */
-function formatBalance(balance: number, decimals: number): string {
-  // Show more precision for small balances, less for large.
-  const displayDecimals = balance >= 1000 ? 2 : balance >= 1 ? 4 : Math.min(decimals, 6);
-  return formatNumber(balance, displayDecimals);
-}
-
-/** Format a percentage change with sign. */
-function formatPercent(pct: number): string {
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
-}
-
 /** Build enriched portfolio rows from balances, metadata, and prices. */
 function buildPortfolioRows(
   balances: TokenBalance[],
@@ -75,7 +40,7 @@ function buildPortfolioRows(
 
     return {
       mint: b.mint,
-      symbol: meta?.symbol ?? truncateMint(b.mint),
+      symbol: meta?.symbol ?? truncateAddress(b.mint),
       name: meta?.name ?? "Unknown",
       iconUrl: meta?.iconUrl ?? null,
       balance: b.balance,

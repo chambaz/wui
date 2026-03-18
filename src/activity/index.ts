@@ -1,12 +1,12 @@
 import { type Rpc, type SolanaRpcApi, address, signature } from "@solana/kit";
 import type { ActivityEntry, ActivityType } from "../types/activity.js";
 import { getTokenMetadata, fetchTokenMetadata } from "../pricing/index.js";
+import { NATIVE_SOL_MINT, formatCompact } from "../format/index.js";
 
 /** Known program IDs for classification. */
 const JUPITER_PROGRAM_ID = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
 
-/** Wrapped SOL mint — excluded from token balance diffs since SOL is tracked separately. */
-const WRAPPED_SOL_MINT = "So11111111111111111111111111111111111111112";
+
 
 /**
  * Fetch more signatures than needed so we can filter to signer-only
@@ -110,7 +110,7 @@ function buildSwapSummary(tx: ParsedTransaction, walletAddress: string): string 
     tx.meta.preTokenBalances,
     tx.meta.postTokenBalances,
     walletAddress,
-  ).filter((c) => c.mint !== WRAPPED_SOL_MINT);
+  ).filter((c) => c.mint !== NATIVE_SOL_MINT);
 
   // Get native SOL balance change.
   const walletIndex = tx.transaction.message.accountKeys.findIndex(
@@ -223,15 +223,6 @@ function computeTokenChanges(
   return changes;
 }
 
-/** Format a number compactly for activity display. */
-function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(2)}K`;
-  if (n >= 1) return n.toFixed(2);
-  if (n >= 0.01) return n.toFixed(4);
-  return n.toFixed(6);
-}
-
 /**
  * Fetch recent activity for a wallet.
  * Only includes transactions where the wallet was a signer (filters spam).
@@ -286,7 +277,7 @@ export async function fetchRecentActivity(
   for (const { tx } of signerTxs) {
     if (!tx?.meta) continue;
     for (const b of [...tx.meta.preTokenBalances, ...tx.meta.postTokenBalances]) {
-      if (b.mint !== WRAPPED_SOL_MINT) {
+      if (b.mint !== NATIVE_SOL_MINT) {
         allMints.add(b.mint);
       }
     }

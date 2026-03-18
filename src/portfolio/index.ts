@@ -1,8 +1,6 @@
 import { type Rpc, type SolanaRpcApi, address } from "@solana/kit";
 import type { TokenBalance } from "../types/portfolio.js";
-
-/** Wrapped SOL mint — used to represent native SOL in the portfolio. */
-const NATIVE_SOL_MINT = "So11111111111111111111111111111111111111112";
+import { NATIVE_SOL_MINT } from "../format/index.js";
 
 /** SPL Token program ID. */
 const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
