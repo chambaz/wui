@@ -7,8 +7,12 @@ import { getActiveWalletEntry } from "./wallet/index.js";
 import type { AppConfig } from "./config/index.js";
 import App from "./app/app.js";
 import Setup from "./app/setup.js";
+import { parseArgs } from "./cli/index.js";
+import { portfolioCommand } from "./cli/portfolio.js";
+import { activityCommand } from "./cli/activity.js";
+import { sendCommand } from "./cli/send.js";
 
-/** Launch the main app with a validated config. */
+/** Launch the interactive TUI. */
 async function launchApp(config: AppConfig) {
   const rpc = initRpc(config.solanaRpcUrl);
 
@@ -32,18 +36,15 @@ async function launchApp(config: AppConfig) {
   );
 }
 
-async function main() {
-  const config = loadConfig();
-
-  if (config) {
-    // Config exists — launch the app directly.
-    await launchApp(config);
-  } else {
-    // No config — show interactive setup, then launch.
-    const { unmount, waitUntilExit } = render(
-      <Setup
-        onComplete={() => {
-          unmount();
+/** Launch the interactive setup flow. */
+function launchSetup(onComplete?: () => void) {
+  const { unmount, waitUntilExit } = render(
+    <Setup
+      onComplete={() => {
+        unmount();
+        if (onComplete) {
+          onComplete();
+        } else {
           const newConfig = loadConfig();
           if (newConfig) {
             launchApp(newConfig).catch((err: Error) => {
@@ -51,14 +52,73 @@ async function main() {
               process.exit(1);
             });
           }
-        }}
-      />,
-    );
-    await waitUntilExit();
+        }
+      }}
+    />,
+  );
+  return waitUntilExit();
+}
+
+const USAGE = `Usage: wui [command] [options]
+
+Commands:
+  (none)       Launch interactive TUI
+  config       Re-run configuration setup
+  portfolio    Print portfolio balances
+  activity     Print recent transaction activity
+  send         Send tokens: wui send <address> <amount> <token>
+
+Options:
+  --json       Output as JSON (non-interactive commands only)`;
+
+async function main() {
+  const { command, args, json } = parseArgs(process.argv);
+
+  // Non-interactive CLI commands.
+  switch (command) {
+    case "portfolio":
+      await portfolioCommand(json);
+      return;
+    case "activity":
+      await activityCommand(json);
+      return;
+    case "send":
+      await sendCommand(args, json);
+      return;
+    case "config":
+      await launchSetup(() => {
+        console.log("Configuration updated.");
+      });
+      return;
+    case "help":
+    case "--help":
+    case "-h":
+      console.log(USAGE);
+      return;
+    case "":
+      break;
+    default:
+      console.error(`Unknown command: ${command}\n`);
+      console.error(USAGE);
+      process.exit(1);
+  }
+
+  // Default: launch the interactive TUI.
+  const config = loadConfig();
+
+  if (config) {
+    await launchApp(config);
+  } else {
+    await launchSetup();
   }
 }
 
-main().catch((err: Error) => {
-  console.error(err.message);
+main().catch((err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err.message);
+    if (process.env.DEBUG) console.error(err.stack);
+  } else {
+    console.error(String(err));
+  }
   process.exit(1);
 });

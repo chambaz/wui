@@ -117,7 +117,7 @@ function buildSwapSummary(tx: ParsedTransaction, walletAddress: string): string 
     (k) => k.pubkey === walletAddress,
   );
   const solDiff = walletIndex >= 0
-    ? Number((tx.meta.postBalances[walletIndex] ?? 0n) - (tx.meta.preBalances[walletIndex] ?? 0n)) / 1e9
+    ? Number(BigInt(tx.meta.postBalances[walletIndex] ?? 0) - BigInt(tx.meta.preBalances[walletIndex] ?? 0)) / 1e9
     : 0;
 
   // Build a combined list of all value changes (SOL + tokens).
@@ -171,8 +171,8 @@ function detectTransfer(
 
   // Check for SOL transfer via balance changes.
   if (walletIndex >= 0) {
-    const preSol = tx.meta.preBalances[walletIndex] ?? 0n;
-    const postSol = tx.meta.postBalances[walletIndex] ?? 0n;
+    const preSol = BigInt(tx.meta.preBalances[walletIndex] ?? 0);
+    const postSol = BigInt(tx.meta.postBalances[walletIndex] ?? 0);
     const diff = Number(postSol - preSol) / 1e9;
 
     // Ignore tiny changes (fees only).
@@ -197,14 +197,14 @@ function computeTokenChanges(
   const preMap = new Map<string, number>();
   for (const b of pre) {
     if (b.owner === owner) {
-      preMap.set(b.mint, b.uiTokenAmount.uiAmount ?? 0);
+      preMap.set(b.mint, Number(b.uiTokenAmount.uiAmount ?? 0));
     }
   }
 
   const postMap = new Map<string, number>();
   for (const b of post) {
     if (b.owner === owner) {
-      postMap.set(b.mint, b.uiTokenAmount.uiAmount ?? 0);
+      postMap.set(b.mint, Number(b.uiTokenAmount.uiAmount ?? 0));
     }
   }
 
