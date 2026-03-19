@@ -3,6 +3,9 @@ import {
   type SolanaRpcApi,
   type KeyPairSigner,
   type Base64EncodedWireTransaction,
+  address,
+  getAddressEncoder,
+  getProgramDerivedAddress,
   getTransactionDecoder,
   getBase64EncodedWireTransaction,
   signTransaction,
@@ -13,6 +16,21 @@ import { JUPITER_BASE_URL } from "../format/index.js";
 
 /** Default slippage tolerance in basis points (0.5%). */
 export const DEFAULT_SLIPPAGE_BPS = 50;
+
+/** Platform fee in basis points (0.3%). Collected on output token. */
+const PLATFORM_FEE_BPS = 30;
+
+/**
+ * Wallet address that receives platform fees from swaps.
+ * Replace with your actual fee collection wallet public key.
+ */
+const FEE_WALLET_ADDRESS = "3TZ4bdHjJaxempMDU9n7itvCEsFVYg5TyzjNWnvT5i6X";
+
+/** SPL Token program address. */
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
+/** Associated Token Account program address. */
+const ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 
 /** Max priority fee in lamports (0.001 SOL cap as safety measure). */
 const MAX_PRIORITY_FEE_LAMPORTS = 1_000_000;
@@ -30,6 +48,56 @@ function jupiterHeaders(apiKey: string): Record<string, string> {
     "x-api-key": apiKey,
     "Content-Type": "application/json",
   };
+}
+
+/** Derive the ATA address for the fee wallet and a given mint. */
+async function deriveFeeTokenAccount(mint: string): Promise<string> {
+  const encoder = getAddressEncoder();
+  const [ata] = await getProgramDerivedAddress({
+    programAddress: address(ATA_PROGRAM),
+    seeds: [
+      encoder.encode(address(FEE_WALLET_ADDRESS)),
+      encoder.encode(address(TOKEN_PROGRAM)),
+      encoder.encode(address(mint)),
+    ],
+  });
+  return ata;
+}
+
+/** Check if an account exists on-chain. */
+async function feeAccountExists(
+  rpc: Rpc<SolanaRpcApi>,
+  accountAddress: string,
+): Promise<boolean> {
+  try {
+    const info = await rpc
+      .getAccountInfo(address(accountAddress), {
+        encoding: "base64",
+        dataSlice: { offset: 0, length: 0 },
+      })
+      .send();
+    return info.value !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the fee account for a swap's output mint.
+ * Returns the ATA address if it exists on-chain, or null to skip fees.
+ */
+async function resolveFeeAccount(
+  rpc: Rpc<SolanaRpcApi>,
+  outputMint: string,
+): Promise<string | null> {
+  if (FEE_WALLET_ADDRESS.startsWith("TODO")) return null;
+  try {
+    const ata = await deriveFeeTokenAccount(outputMint);
+    const exists = await feeAccountExists(rpc, ata);
+    return exists ? ata : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Raw Jupiter quote response shape (fields we consume). */
@@ -76,6 +144,7 @@ export async function getSwapQuote(
     amount: request.amount,
     slippageBps: String(request.slippageBps),
     restrictIntermediateTokens: "true",
+    platformFeeBps: String(PLATFORM_FEE_BPS),
   });
 
   const url = `${JUPITER_BASE_URL}/swap/v1/quote?${params}`;
@@ -120,22 +189,30 @@ async function buildSwapTransaction(
   quote: SwapQuote,
   userPublicKey: string,
   apiKey: string,
+  feeAccount: string | null,
 ): Promise<JupiterSwapResponse> {
   const url = `${JUPITER_BASE_URL}/swap/v1/swap`;
+
+  const body: Record<string, unknown> = {
+    quoteResponse: quote.rawQuoteResponse,
+    userPublicKey,
+    dynamicComputeUnitLimit: true,
+    prioritizationFeeLamports: {
+      priorityLevelWithMaxLamports: {
+        priorityLevel: "veryHigh",
+        maxLamports: MAX_PRIORITY_FEE_LAMPORTS,
+      },
+    },
+  };
+
+  if (feeAccount) {
+    body.feeAccount = feeAccount;
+  }
+
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: jupiterHeaders(apiKey),
-    body: JSON.stringify({
-      quoteResponse: quote.rawQuoteResponse,
-      userPublicKey,
-      dynamicComputeUnitLimit: true,
-      prioritizationFeeLamports: {
-        priorityLevelWithMaxLamports: {
-          priorityLevel: "veryHigh",
-          maxLamports: MAX_PRIORITY_FEE_LAMPORTS,
-        },
-      },
-    }),
+    body: JSON.stringify(body),
   }, "Jupiter API");
 
   if (!res.ok) {
@@ -227,13 +304,17 @@ export async function executeSwap(
   apiKey: string,
   onStatus?: (status: string) => void,
 ): Promise<SwapResult> {
-  let currentStep = "building transaction";
+  let currentStep = "resolving fee account";
   try {
+    const feeAccount = await resolveFeeAccount(rpc, quote.outputMint);
+
+    currentStep = "building transaction";
     onStatus?.("Building transaction...");
     const swapResponse = await buildSwapTransaction(
       quote,
       signer.address,
       apiKey,
+      feeAccount,
     );
 
     currentStep = "signing transaction";
