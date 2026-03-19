@@ -137,6 +137,7 @@ interface JupiterSwapResponse {
 export async function getSwapQuote(
   request: SwapQuoteRequest,
   apiKey: string,
+  includePlatformFee = true,
 ): Promise<SwapQuote> {
   const params = new URLSearchParams({
     inputMint: request.inputMint,
@@ -144,8 +145,10 @@ export async function getSwapQuote(
     amount: request.amount,
     slippageBps: String(request.slippageBps),
     restrictIntermediateTokens: "true",
-    platformFeeBps: String(PLATFORM_FEE_BPS),
   });
+  if (includePlatformFee) {
+    params.set("platformFeeBps", String(PLATFORM_FEE_BPS));
+  }
 
   const url = `${JUPITER_BASE_URL}/swap/v1/quote?${params}`;
   const res = await fetchWithTimeout(url, {
@@ -308,10 +311,26 @@ export async function executeSwap(
   try {
     const feeAccount = await resolveFeeAccount(rpc, quote.outputMint);
 
+    // If no fee account available but quote included platform fee, re-quote without it.
+    let activeQuote = quote;
+    if (!feeAccount) {
+      currentStep = "re-quoting without fee";
+      activeQuote = await getSwapQuote(
+        {
+          inputMint: quote.inputMint,
+          outputMint: quote.outputMint,
+          amount: quote.inAmount,
+          slippageBps: quote.slippageBps,
+        },
+        apiKey,
+        false,
+      );
+    }
+
     currentStep = "building transaction";
     onStatus?.("Building transaction...");
     const swapResponse = await buildSwapTransaction(
-      quote,
+      activeQuote,
       signer.address,
       apiKey,
       feeAccount,
@@ -335,10 +354,10 @@ export async function executeSwap(
     return {
       success: true,
       signature,
-      inputMint: quote.inputMint,
-      outputMint: quote.outputMint,
-      inAmount: quote.inAmount,
-      outAmount: quote.outAmount,
+      inputMint: activeQuote.inputMint,
+      outputMint: activeQuote.outputMint,
+      inAmount: activeQuote.inAmount,
+      outAmount: activeQuote.outAmount,
       error: null,
     };
   } catch (err: unknown) {

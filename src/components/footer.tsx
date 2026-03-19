@@ -14,6 +14,7 @@ const SHORTCUTS: Shortcut[] = [
   { hotkey: "t", label: "Transfer", screen: "send" },
   { hotkey: "a", label: "Activity", screen: "activity" },
   { hotkey: "w", label: "Wallets", screen: "wallets" },
+  { hotkey: "k", label: "Stake", screen: "staking" },
   { hotkey: "r", label: "Refresh" },
   { hotkey: "q", label: "Quit" },
 ];

@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@solana-program/stake':
+        specifier: ^0.6.0
+        version: 0.6.0(@solana/kit@6.3.1(typescript@5.9.3))
+      '@solana-program/system':
+        specifier: ^0.12.0
+        version: 0.12.0(@solana/kit@6.3.1(typescript@5.9.3))
       '@solana/kit':
         specifier: ^6.3.1
         version: 6.3.1(typescript@5.9.3)
@@ -352,6 +358,16 @@ packages:
     resolution: {integrity: sha512-2HRCml6OztYXyJXAvdDXPKcawukWY2GpR5/nxKp4iBgiO3wcoEGkAaqctIbZcNB6KlUQBIqt8VYkNSj2397EfA==}
     cpu: [x64]
     os: [win32]
+
+  '@solana-program/stake@0.6.0':
+    resolution: {integrity: sha512-s2b2s1OUevNpPW4qkI2gbasdTnojGAt6mMqyoLzjycIpAqx68meSH+QTkHCGHAPDnmNACE81iz0qxTYZ9lxKkw==}
+    peerDependencies:
+      '@solana/kit': ^6.0
+
+  '@solana-program/system@0.12.0':
+    resolution: {integrity: sha512-ZnAAWeGVMWNtJhw3GdifI2HnhZ0A0H0qs8tBkcFvxp/8wIavvO+GOM4Jd0N22u2+Lni2zcwvcrxrsxj6Mjphng==}
+    peerDependencies:
+      '@solana/kit': ^6.1.0
 
   '@solana/accounts@6.3.1':
     resolution: {integrity: sha512-6HlpxGVWbSMUEEdRovU4Blkc63uOyD/wNyLtiO3A99R8qFG49Ae95m37sBMd7+jqOw2/Ik4Lrmvb4r5mF9JiIw==}
@@ -1329,6 +1345,14 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.59.0':
     optional: true
+
+  '@solana-program/stake@0.6.0(@solana/kit@6.3.1(typescript@5.9.3))':
+    dependencies:
+      '@solana/kit': 6.3.1(typescript@5.9.3)
+
+  '@solana-program/system@0.12.0(@solana/kit@6.3.1(typescript@5.9.3))':
+    dependencies:
+      '@solana/kit': 6.3.1(typescript@5.9.3)
 
   '@solana/accounts@6.3.1(typescript@5.9.3)':
     dependencies:

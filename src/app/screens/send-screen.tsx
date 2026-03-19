@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
+import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
@@ -9,6 +10,8 @@ import { copyToClipboard } from "../../clipboard/index.js";
 import { truncateAddress, formatAmount } from "../../format/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
+
+const SOLSCAN_TX_URL = "https://solscan.io/tx/";
 
 type SendStep =
   | "select-token"
@@ -465,7 +468,9 @@ export default function SendScreen({
                 </Box>
                 <Box>
                   <Text dimColor>{"Tx:       "}</Text>
-                  <Text>{sendResult.signature}</Text>
+                  <Link url={`${SOLSCAN_TX_URL}${sendResult.signature!}`}>
+                    <Text>{truncateAddress(sendResult.signature!)}</Text>
+                  </Link>
                 </Box>
               </Box>
             </>

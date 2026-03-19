@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
+import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
@@ -9,6 +10,8 @@ import { copyToClipboard } from "../../clipboard/index.js";
 import { truncateAddress, formatAmount } from "../../format/index.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
+
+const SOLSCAN_TX_URL = "https://solscan.io/tx/";
 
 type SwapStep =
   | "select-source"
@@ -586,7 +589,9 @@ export default function SwapScreen({
                 </Box>
                 <Box>
                   <Text dimColor>{"Tx:       "}</Text>
-                  <Text>{swapResult.signature}</Text>
+                  <Link url={`${SOLSCAN_TX_URL}${swapResult.signature!}`}>
+                    <Text>{truncateAddress(swapResult.signature!)}</Text>
+                  </Link>
                 </Box>
               </Box>
             </>

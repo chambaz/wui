@@ -236,7 +236,9 @@ export default function ActivityScreen({
             </Box>
             <Box>
               <Text dimColor>{"Signature: "}</Text>
-              <Text>{selected.signature}</Text>
+              <Link url={`${SOLSCAN_TX_URL}${selected.signature}`}>
+                <Text>{selected.signature}</Text>
+              </Link>
             </Box>
             {selected.timestamp && (
               <Box>

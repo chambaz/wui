@@ -13,6 +13,7 @@ import SwapScreen from "./screens/swap-screen.js";
 import SendScreen from "./screens/send-screen.js";
 import ActivityScreen from "./screens/activity-screen.js";
 import WalletsScreen from "./screens/wallets-screen.js";
+import StakingScreen from "./screens/staking-screen.js";
 
 /** App version. */
 const VERSION = "0.1.0";
@@ -30,6 +31,7 @@ const SCREEN_KEYS: Record<string, Screen> = {
   t: "send",
   a: "activity",
   w: "wallets",
+  k: "staking",
 };
 
 export default function App({ wallet: initialWallet, rpcConnected, rpc, config }: AppProps) {
@@ -39,6 +41,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
   const [swapCapturingInput, setSwapCapturingInput] = useState(false);
   const [sendCapturingInput, setSendCapturingInput] = useState(false);
   const [walletsCapturingInput, setWalletsCapturingInput] = useState(false);
+  const [stakingCapturingInput, setStakingCapturingInput] = useState(false);
 
   // Currently selected mint in portfolio screen (for cross-screen shortcuts).
   const [portfolioSelectedMint, setPortfolioSelectedMint] = useState<string | null>(null);
@@ -62,7 +65,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
 
   useInput((input) => {
     // When a screen is capturing text input, don't process single-key shortcuts.
-    if (swapCapturingInput || sendCapturingInput || walletsCapturingInput) return;
+    if (swapCapturingInput || sendCapturingInput || walletsCapturingInput || stakingCapturingInput) return;
 
     if (input === "q") {
       exit();
@@ -144,6 +147,15 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             isActive={screen === "wallets"}
             onWalletChange={refreshWallet}
             onCapturingInputChange={setWalletsCapturingInput}
+          />
+        </Box>
+        <Box display={screen === "staking" ? "flex" : "none"} flexDirection="column">
+          <StakingScreen
+            walletAddress={wallet?.publicKey ?? null}
+            rpc={rpc}
+            isActive={screen === "staking"}
+            onCapturingInputChange={setStakingCapturingInput}
+            onTransactionComplete={handleTransactionComplete}
           />
         </Box>
       </Box>
