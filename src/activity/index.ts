@@ -197,14 +197,20 @@ function computeTokenChanges(
   const preMap = new Map<string, number>();
   for (const b of pre) {
     if (b.owner === owner) {
-      preMap.set(b.mint, Number(b.uiTokenAmount.uiAmount ?? 0));
+      preMap.set(
+        b.mint,
+        (preMap.get(b.mint) ?? 0) + Number(b.uiTokenAmount.uiAmount ?? 0),
+      );
     }
   }
 
   const postMap = new Map<string, number>();
   for (const b of post) {
     if (b.owner === owner) {
-      postMap.set(b.mint, Number(b.uiTokenAmount.uiAmount ?? 0));
+      postMap.set(
+        b.mint,
+        (postMap.get(b.mint) ?? 0) + Number(b.uiTokenAmount.uiAmount ?? 0),
+      );
     }
   }
 

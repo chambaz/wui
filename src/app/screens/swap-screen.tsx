@@ -229,7 +229,13 @@ export default function SwapScreen({
     setError(null);
     setSelectedIndex(0);
     setBalances([]);
+    setMetadata(new Map());
   }, []);
+
+  // Reset stale state when switching wallets.
+  useEffect(() => {
+    resetSwap();
+  }, [walletAddress, resetSwap]);
 
   // --- Input handling ---
 

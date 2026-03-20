@@ -129,6 +129,7 @@ export default function StakingScreen({
   const executeStake = useCallback(async () => {
     if (!stakeTarget || !amountInput) return;
     setStep("executing");
+    let succeeded = false;
 
     try {
       const signer = await getActiveWalletSigner();
@@ -138,14 +139,14 @@ export default function StakingScreen({
 
       const lamports = BigInt(Math.floor(parseFloat(amountInput) * 1e9));
 
-      if (stakeTarget.mode === "liquid") {
+        if (stakeTarget.mode === "liquid") {
         const sig = await depositToStakePool(
           rpc, signer,
           stakeTarget.provider.stakePoolAddress,
-          stakeTarget.provider.lstMint,
           lamports, setExecutingStatus,
         );
         setResultSignature(sig);
+        succeeded = true;
       } else {
         const sig = await createNativeStake(
           rpc, signer,
@@ -153,19 +154,21 @@ export default function StakingScreen({
           lamports, setExecutingStatus,
         );
         setResultSignature(sig);
+        succeeded = true;
       }
     } catch (err: unknown) {
       setResultError(err instanceof Error ? err.message : "Staking failed.");
     }
 
     setStep("result");
-    onTransactionComplete();
+    if (succeeded) onTransactionComplete();
   }, [stakeTarget, amountInput, rpc, onTransactionComplete]);
 
   // --- Deactivate / Withdraw ---
 
   const handleDeactivate = useCallback(async (account: StakeAccountInfo) => {
     setStep("executing");
+    let succeeded = false;
     try {
       const signer = await getActiveWalletSigner();
       if (!signer) {
@@ -174,15 +177,17 @@ export default function StakingScreen({
 
       const sig = await deactivateStake(rpc, signer, account.address, setExecutingStatus);
       setResultSignature(sig);
+      succeeded = true;
     } catch (err: unknown) {
       setResultError(err instanceof Error ? err.message : "Deactivate failed.");
     }
     setStep("result");
-    onTransactionComplete();
+    if (succeeded) onTransactionComplete();
   }, [rpc, onTransactionComplete]);
 
   const handleWithdraw = useCallback(async (account: StakeAccountInfo) => {
     setStep("executing");
+    let succeeded = false;
     try {
       const signer = await getActiveWalletSigner();
       if (!signer) {
@@ -191,11 +196,12 @@ export default function StakingScreen({
 
       const sig = await withdrawStake(rpc, signer, account.address, account.lamports, setExecutingStatus);
       setResultSignature(sig);
+      succeeded = true;
     } catch (err: unknown) {
       setResultError(err instanceof Error ? err.message : "Withdraw failed.");
     }
     setStep("result");
-    onTransactionComplete();
+    if (succeeded) onTransactionComplete();
   }, [rpc, onTransactionComplete]);
 
   // --- Input handling ---

@@ -290,7 +290,6 @@ export async function depositToStakePool(
   rpc: Rpc<SolanaRpcApi>,
   signer: KeyPairSigner,
   stakePoolAddress: string,
-  lstMint: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
 ): Promise<string> {
@@ -321,8 +320,8 @@ export async function depositToStakePool(
     ],
   });
 
-  // Ensure the user's LST ATA exists.
-  const userLstAta = await getAssociatedTokenAddress(signer.address, lstMint);
+  // Use the authoritative on-chain pool mint as the source of truth.
+  const userLstAta = await getAssociatedTokenAddress(signer.address, poolMint);
   const lstAtaExists = await accountExists(rpc, userLstAta);
 
   onStatus?.("Building transaction...");
@@ -361,7 +360,7 @@ export async function depositToStakePool(
 
   let txMessage;
   if (!lstAtaExists) {
-    const createAtaIx = buildCreateAtaInstruction(signer.address, userLstAta, signer.address, lstMint);
+    const createAtaIx = buildCreateAtaInstruction(signer.address, userLstAta, signer.address, poolMint);
     txMessage = pipe(
       baseMessage,
       (msg) => appendTransactionMessageInstruction(createAtaIx, msg),
