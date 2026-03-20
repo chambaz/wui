@@ -20,6 +20,8 @@ if (copyButton && installBlock) {
   });
 }
 
+const DEMO_ENABLED = false;
+
 const tabs = Array.from(document.querySelectorAll("[data-video-tab]"));
 const videos = Array.from(document.querySelectorAll("[data-video-panel]"));
 
@@ -73,18 +75,20 @@ async function switchTo(index) {
   await playVideo(index);
 }
 
-tabs.forEach((tab, index) => {
-  tab.addEventListener("click", () => {
-    void switchTo(index);
+if (DEMO_ENABLED) {
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      void switchTo(index);
+    });
   });
-});
 
-videos.forEach((video, index) => {
-  video.addEventListener("ended", () => {
-    void switchTo((index + 1) % videos.length);
+  videos.forEach((video, index) => {
+    video.addEventListener("ended", () => {
+      void switchTo((index + 1) % videos.length);
+    });
   });
-});
 
-setTabState(activeIndex);
-setVideoState(activeIndex);
-void playVideo(activeIndex);
+  setTabState(activeIndex);
+  setVideoState(activeIndex);
+  void playVideo(activeIndex);
+}

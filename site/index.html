@@ -146,93 +146,30 @@
     <!-- Demo -->
     <section>
       <div class="container">
-        <div class="demo-tabs" role="tablist" aria-label="wui demo clips">
-          <button
-            class="demo-tab is-active"
-            type="button"
-            data-video-tab="0"
-            aria-pressed="true"
-          >
-            Portfolio
-          </button>
-          <button
-            class="demo-tab"
-            type="button"
-            data-video-tab="1"
-            aria-pressed="false"
-          >
-            Swap
-          </button>
-          <button
-            class="demo-tab"
-            type="button"
-            data-video-tab="2"
-            aria-pressed="false"
-          >
-            Transfer
-          </button>
-          <button
-            class="demo-tab"
-            type="button"
-            data-video-tab="3"
-            aria-pressed="false"
-          >
-            Stake
-          </button>
-        </div>
-        <div class="demo-stage">
-          <video
-            class="demo-video is-active"
-            data-video-panel="0"
-            muted
-            playsinline
-            preload="metadata"
-            aria-label="Portfolio demo"
-          >
-            <source
-              src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4"
-              type="video/mp4"
-            />
-          </video>
-          <video
-            class="demo-video"
-            data-video-panel="1"
-            muted
-            playsinline
-            preload="metadata"
-            aria-label="Swap demo"
-          >
-            <source
-              src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-2.mp4"
-              type="video/mp4"
-            />
-          </video>
-          <video
-            class="demo-video"
-            data-video-panel="2"
-            muted
-            playsinline
-            preload="metadata"
-            aria-label="Transfer demo"
-          >
-            <source
-              src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-3.mp4"
-              type="video/mp4"
-            />
-          </video>
-          <video
-            class="demo-video"
-            data-video-panel="3"
-            muted
-            playsinline
-            preload="metadata"
-            aria-label="Stake demo"
-          >
-            <source
-              src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4"
-              type="video/mp4"
-            />
-          </video>
+        <div class="demo-shell demo-shell-disabled" data-demo-enabled="false">
+          <div class="demo-tabs" role="tablist" aria-label="wui demo clips">
+            <button class="demo-tab is-active" type="button" data-video-tab="0" aria-pressed="true">Portfolio</button>
+            <button class="demo-tab" type="button" data-video-tab="1" aria-pressed="false">Swap</button>
+            <button class="demo-tab" type="button" data-video-tab="2" aria-pressed="false">Transfer</button>
+            <button class="demo-tab" type="button" data-video-tab="3" aria-pressed="false">Stake</button>
+          </div>
+          <div class="demo-placeholder">
+            <span class="demo-placeholder-label">Videos coming soon</span>
+          </div>
+          <div class="demo-stage" aria-hidden="true">
+            <video class="demo-video is-active" data-video-panel="0" muted playsinline preload="metadata" aria-label="Portfolio demo">
+              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4" type="video/mp4" />
+            </video>
+            <video class="demo-video" data-video-panel="1" muted playsinline preload="metadata" aria-label="Swap demo">
+              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-2.mp4" type="video/mp4" />
+            </video>
+            <video class="demo-video" data-video-panel="2" muted playsinline preload="metadata" aria-label="Transfer demo">
+              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-3.mp4" type="video/mp4" />
+            </video>
+            <video class="demo-video" data-video-panel="3" muted playsinline preload="metadata" aria-label="Stake demo">
+              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4" type="video/mp4" />
+            </video>
+          </div>
         </div>
       </div>
     </section>
