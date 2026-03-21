@@ -46,6 +46,11 @@ export default function Setup({ onComplete }: SetupProps) {
         setStep("jupiter-key");
         return;
       }
+      if (!res.ok) {
+        setError(`Could not validate Jupiter API key (${res.status}). Try again.`);
+        setStep("jupiter-key");
+        return;
+      }
     } catch {
       setError("Could not validate Jupiter API key. Check your network connection.");
       setStep("jupiter-key");
