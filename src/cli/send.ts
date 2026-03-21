@@ -51,14 +51,19 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
 
   // Parse amount.
   let rawAmount: bigint;
+  let displayAmount: string;
   if (amountArg === "max") {
     if (token.isNative) {
       rawAmount = maxSendableSol(token.rawBalance);
       if (rawAmount === 0n) {
         throw new Error("Insufficient SOL balance (need to reserve for fees).");
       }
+      displayAmount = (Number(rawAmount) / 10 ** token.decimals).toLocaleString("en-US", {
+        maximumFractionDigits: 6,
+      });
     } else {
       rawAmount = token.rawBalance;
+      displayAmount = token.balance.toLocaleString("en-US", { maximumFractionDigits: 6 });
     }
   } else {
     const parsed = Number(amountArg);
@@ -73,6 +78,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
         `Insufficient balance. Have ${token.balance}, sending ${amountArg}.`,
       );
     }
+    displayAmount = amountArg;
   }
 
   const request: TransferRequest = {
@@ -86,7 +92,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
   const symbol = metadata.get(token.mint)?.symbol ?? token.mint.slice(0, 8);
 
   if (!json) {
-    console.log(`Sending ${amountArg === "max" ? token.balance : amountArg} ${symbol} to ${recipientArg}...`);
+    console.log(`Sending ${displayAmount} ${symbol} to ${recipientArg}...`);
   }
 
   const result = await executeTransfer(request, signer, rpc, json ? undefined : (s) => console.log(s));

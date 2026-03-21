@@ -109,6 +109,18 @@ export default function SendScreen({
     return metadata.get(mint)?.symbol ?? truncateAddress(mint);
   }
 
+  function previewAmount(): string {
+    if (!sourceToken) return amountInput;
+    if (amountInput !== "max") return amountInput;
+
+    if (sourceToken.isNative) {
+      const maxAmount = Number(maxSendableSol(sourceToken.rawBalance)) / 10 ** sourceToken.decimals;
+      return maxAmount.toLocaleString("en-US", { maximumFractionDigits: 6 });
+    }
+
+    return sourceToken.balance.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  }
+
   const sendInFlight = useRef(false);
 
   /** Execute the send. */
@@ -425,9 +437,7 @@ export default function SendScreen({
             <Box>
               <Text dimColor>{"Amount:    "}</Text>
               <Text color="green">
-                {amountInput === "max"
-                  ? sourceToken.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })
-                  : amountInput}
+                {previewAmount()}
                 {" "}{mintSymbol(sourceToken.mint)}
               </Text>
             </Box>
