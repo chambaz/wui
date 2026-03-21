@@ -81,25 +81,26 @@ src/
     portfolio.ts      # wui portfolio
     activity.ts       # wui activity
     send.ts           # wui send
+  lib/               # Small shared utility modules
+    config.ts         # Env loading and validation
+    rpc.ts            # RPC client init + health check
+    errors.ts         # Shared error utilities
+    format.ts         # Shared formatting utilities and constants
+    clipboard.ts      # System clipboard integration
   wallet/            # Keypair loading, signing, wallet CRUD
   portfolio/         # Token accounts, balances
   pricing/           # Price fetching, token metadata, caching
   swap/              # Jupiter swap: quote, build, sign, send, confirm
   transfer/          # SOL + SPL + Token-2022 transfers
   activity/          # Transaction history, classification
-  rpc/               # RPC client init + health check
-  errors/            # Shared error utilities (fetchWithTimeout, formatTransactionError)
-  clipboard/         # System clipboard integration
-  format/            # Shared formatting utilities and constants
   types/             # Shared type definitions
-  config/            # Env loading and validation
 ```
 
 ## Architecture Rules
 
 **Dependency direction is strictly enforced:**
 
-- `wallet/`, `swap/`, `portfolio/`, `pricing/`, `activity/`, `rpc/`, `transfer/`, `errors/`, `clipboard/`, `format/` are service modules.
+- `wallet/`, `swap/`, `portfolio/`, `pricing/`, `activity/`, `transfer/`, `staking/`, and `lib/` are service modules.
 - Service modules must NOT import from `app/`, `components/`, or `cli/`.
 - Service modules may depend on each other, on `types/`, and on external libraries.
 - Only `app/`, `components/`, and `cli/` import from service modules — never the reverse.
@@ -163,13 +164,14 @@ src/
 
 ### Shared Utilities
 
-- **Formatting functions** (`truncateAddress`, `formatUsd`, `formatBalance`, `formatPercent`, `formatAmount`, `formatTime`, `formatCompact`) live in `src/format/index.ts`. Import from there — never duplicate.
-- **Shared constants** (`NATIVE_SOL_MINT`, `JUPITER_BASE_URL`) also live in `src/format/index.ts`.
+- **Formatting functions** (`truncateAddress`, `formatUsd`, `formatBalance`, `formatPercent`, `formatAmount`, `formatTime`, `formatCompact`) live in `src/lib/format.ts`. Import from there — never duplicate.
+- **Shared constants** (`NATIVE_SOL_MINT`, `JUPITER_BASE_URL`) also live in `src/lib/format.ts`.
 
 ### Module Pattern
 
-- Each module directory has an `index.ts` barrel file that exports the public API.
-- Keep internal helpers as unexported functions within the module file.
+- Small shared utilities live as flat files in `src/lib/`.
+- Product domains (`swap/`, `transfer/`, `activity/`, `staking/`, etc.) stay as directories.
+- Domain `index.ts` files should stay thin and export the public API; split implementation into focused files when a service grows.
 - Use JSDoc comments (`/** ... */`) for non-obvious public functions.
 
 ## Key Dependencies

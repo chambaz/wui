@@ -3,8 +3,8 @@ import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchRecentActivity } from "../../activity/index.js";
-import { copyToClipboard } from "../../clipboard/index.js";
-import { formatTime } from "../../format/index.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
+import { formatTime } from "../../lib/format.js";
 import type { ActivityEntry, ActivityType } from "../../types/activity.js";
 
 /** Number of transactions to display. */

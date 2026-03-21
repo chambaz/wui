@@ -15,9 +15,7 @@ export function getRpc(): Rpc<SolanaRpcApi> {
 }
 
 /** Ping the RPC with a lightweight call to verify connectivity. */
-export async function checkRpcHealth(
-  rpc: Rpc<SolanaRpcApi>
-): Promise<boolean> {
+export async function checkRpcHealth(rpc: Rpc<SolanaRpcApi>): Promise<boolean> {
   try {
     await rpc.getSlot().send();
     return true;

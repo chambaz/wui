@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import { truncateAddress } from "../format/index.js";
+import { truncateAddress } from "../lib/format.js";
 
 interface HeaderProps {
   walletLabel: string | null;

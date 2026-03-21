@@ -1,6 +1,6 @@
 import { type Rpc, type SolanaRpcApi, address } from "@solana/kit";
 import type { TokenBalance } from "../types/portfolio.js";
-import { NATIVE_SOL_MINT } from "../format/index.js";
+import { NATIVE_SOL_MINT } from "../lib/format.js";
 
 /** SPL Token program ID. */
 const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";

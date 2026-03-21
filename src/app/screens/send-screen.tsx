@@ -6,8 +6,8 @@ import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
-import { copyToClipboard } from "../../clipboard/index.js";
-import { truncateAddress, formatAmount } from "../../format/index.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
+import { truncateAddress, formatAmount } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
 

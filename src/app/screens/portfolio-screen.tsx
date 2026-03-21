@@ -3,8 +3,8 @@ import { Box, Text, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../../pricing/index.js";
-import { copyToClipboard } from "../../clipboard/index.js";
-import { truncateAddress, formatNumber, formatUsd, formatBalance, formatPercent } from "../../format/index.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
+import { truncateAddress, formatNumber, formatUsd, formatBalance, formatPercent } from "../../lib/format.js";
 import type {
   PortfolioRow,
   PortfolioSummary,

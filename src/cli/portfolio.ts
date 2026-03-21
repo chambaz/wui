@@ -1,7 +1,7 @@
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../pricing/index.js";
 import { bootstrap, printJson, printTable } from "./index.js";
-import { formatUsd, formatPercent } from "../format/index.js";
+import { formatUsd, formatPercent } from "../lib/format.js";
 import type { TokenBalance, TokenMetadata, TokenPrice } from "../types/portfolio.js";
 
 /** Build a portfolio row for display. */

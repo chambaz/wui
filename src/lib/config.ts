@@ -1,5 +1,5 @@
-import { config as loadDotenv } from "dotenv";
-import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { parse as parseDotenv } from "dotenv";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -16,20 +16,15 @@ export interface AppConfig {
  * Returns null if required variables are missing.
  */
 export function loadConfig(): AppConfig | null {
-  // Load from ~/.wui/.env first, then fall back to ./.env in working directory.
-  if (existsSync(CONFIG_PATH)) {
-    loadDotenv({ path: CONFIG_PATH });
-  } else {
-    loadDotenv({ quiet: true });
-  }
+  const env = loadEnvFile(existsSync(CONFIG_PATH) ? CONFIG_PATH : ".env");
 
-  if (!process.env.SOLANA_RPC_URL || !process.env.JUPITER_API_KEY) {
+  if (!env.SOLANA_RPC_URL || !env.JUPITER_API_KEY) {
     return null;
   }
 
   return {
-    solanaRpcUrl: process.env.SOLANA_RPC_URL,
-    jupiterApiKey: process.env.JUPITER_API_KEY,
+    solanaRpcUrl: env.SOLANA_RPC_URL,
+    jupiterApiKey: env.JUPITER_API_KEY,
   };
 }
 
@@ -42,3 +37,8 @@ export function saveConfig(rpcUrl: string, jupiterApiKey: string): void {
 
 /** Path to the config file for display purposes. */
 export const CONFIG_FILE_PATH = CONFIG_PATH;
+
+function loadEnvFile(path: string): Record<string, string> {
+  if (!existsSync(path)) return {};
+  return parseDotenv(readFileSync(path, "utf-8"));
+}

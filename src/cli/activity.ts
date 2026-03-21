@@ -1,6 +1,6 @@
 import { fetchRecentActivity } from "../activity/index.js";
 import { bootstrap, printJson, printTable } from "./index.js";
-import { formatTime } from "../format/index.js";
+import { formatTime } from "../lib/format.js";
 
 /** Map activity type to a short label. */
 function typeLabel(type: string): string {

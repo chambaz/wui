@@ -6,8 +6,8 @@ import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
-import { copyToClipboard } from "../../clipboard/index.js";
-import { truncateAddress, formatAmount } from "../../format/index.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
+import { truncateAddress, formatAmount } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
 

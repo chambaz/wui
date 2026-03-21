@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
-import { copyToClipboard } from "../../clipboard/index.js";
-import { truncateAddress } from "../../format/index.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
+import { truncateAddress } from "../../lib/format.js";
 import type { WalletEntry } from "../../types/wallet.js";
 import {
   listWallets,

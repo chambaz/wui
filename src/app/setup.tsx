@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { Box, Text, useInput, useApp } from "ink";
-import { saveConfig, CONFIG_FILE_PATH } from "../config/index.js";
-import { initRpc, checkRpcHealth } from "../rpc/index.js";
-import { fetchWithTimeout } from "../errors/index.js";
+import { saveConfig, CONFIG_FILE_PATH } from "../lib/config.js";
+import { initRpc, checkRpcHealth } from "../lib/rpc.js";
+import { fetchWithTimeout } from "../lib/errors.js";
 
 type SetupStep = "rpc-url" | "jupiter-key" | "validating" | "done";
 

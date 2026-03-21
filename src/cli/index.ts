@@ -1,8 +1,8 @@
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
-import { loadConfig } from "../config/index.js";
-import { initRpc, checkRpcHealth } from "../rpc/index.js";
+import { loadConfig } from "../lib/config.js";
+import { initRpc, checkRpcHealth } from "../lib/rpc.js";
 import { getActiveWalletEntry } from "../wallet/index.js";
-import type { AppConfig } from "../config/index.js";
+import type { AppConfig } from "../lib/config.js";
 import type { WalletEntry } from "../types/wallet.js";
 
 /** Parsed CLI arguments. */

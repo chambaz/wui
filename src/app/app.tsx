@@ -3,7 +3,7 @@ import { Box, useApp, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { Screen } from "../types/screens.js";
 import type { WalletEntry } from "../types/wallet.js";
-import type { AppConfig } from "../config/index.js";
+import type { AppConfig } from "../lib/config.js";
 import { getActiveWalletEntry } from "../wallet/index.js";
 import Header from "../components/header.js";
 import Footer from "../components/footer.js";

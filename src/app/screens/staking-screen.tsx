@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
-import { truncateAddress, formatBalance } from "../../format/index.js";
-import { copyToClipboard } from "../../clipboard/index.js";
+import { truncateAddress, formatBalance } from "../../lib/format.js";
+import { copyToClipboard } from "../../lib/clipboard.js";
 import {
   STAKE_PROVIDERS,
   fetchStakeAccounts,
