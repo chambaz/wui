@@ -444,7 +444,10 @@ export default function PortfolioScreen({
       {/* Navigation hint */}
       <Box marginTop={1} gap={2}>
         <Text dimColor>
-          [up/down] navigate  [enter] details{showDetail ? "  [y] copy mint  [esc] close" : ""}
+          {showDetail
+            ? "[up/down] navigate  [y] copy mint  [esc] close"
+            : "[up/down] navigate  [enter] details"
+          }
         </Text>
         {copied && <Text color="green">copied!</Text>}
       </Box>

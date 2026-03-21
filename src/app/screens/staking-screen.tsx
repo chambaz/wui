@@ -226,6 +226,10 @@ export default function StakingScreen({
         }
         return;
       }
+      if (key.escape && showDetail) {
+        setShowDetail(false);
+        return;
+      }
       if (key.return && stakeAccounts.length > 0) {
         setShowDetail((v) => !v);
         return;
@@ -703,9 +707,11 @@ export default function StakingScreen({
 
       <Box marginTop={1} gap={2}>
         <Text dimColor>
-          {stakeAccounts.length > 0
-            ? `[up/down] navigate  [enter] details${showDetail ? "  [y] copy address" : ""}  [n] new stake`
-            : "[n] new stake"
+          {stakeAccounts.length === 0
+            ? "[n] new stake"
+            : showDetail
+              ? `[up/down] navigate  [y] copy address${stakeAccounts[selectedIndex]?.status === "active" ? "  [d] deactivate" : ""}${stakeAccounts[selectedIndex]?.status === "deactivated" ? "  [w] withdraw" : ""}  [esc] close`
+              : "[up/down] navigate  [enter] details  [n] new stake"
           }
         </Text>
         {copied && <Text color="green">copied!</Text>}

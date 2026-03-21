@@ -107,6 +107,10 @@ export default function ActivityScreen({
         }
         return;
       }
+      if (key.escape && showDetail) {
+        setShowDetail(false);
+        return;
+      }
       if (key.return) {
         setShowDetail((v) => !v);
         return;
@@ -265,7 +269,10 @@ export default function ActivityScreen({
       {/* Navigation hint */}
       <Box marginTop={1} gap={2}>
         <Text dimColor>
-          [up/down] navigate  [enter] details{showDetail ? "  [y] copy tx" : ""}
+          {showDetail
+            ? "[up/down] navigate  [y] copy tx  [esc] close"
+            : "[up/down] navigate  [enter] details"
+          }
         </Text>
         {copied && <Text color="green">copied!</Text>}
       </Box>
