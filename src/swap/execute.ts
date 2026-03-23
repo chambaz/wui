@@ -7,12 +7,11 @@ import {
   getBase64EncodedWireTransaction,
   signTransaction,
 } from "@solana/kit";
-import { formatTransactionError } from "../lib/errors.js";
+import { sendAndConfirmTransaction } from "../lib/confirm.js";
 import type { SwapQuote, SwapResult } from "../types/swap.js";
 import { getSwapQuote } from "./quote.js";
 import { buildSwapTransaction } from "./build.js";
 import { resolveFeeAccount } from "./fees.js";
-import { CONFIRMATION_POLL_INTERVAL_MS, CONFIRMATION_TIMEOUT_MS } from "./constants.js";
 
 async function signSwapTransaction(
   base64Transaction: string,
@@ -23,39 +22,6 @@ async function signSwapTransaction(
   const transaction = decoder.decode(txBytes);
   const signed = await signTransaction([signer.keyPair], transaction);
   return getBase64EncodedWireTransaction(signed);
-}
-
-async function sendAndConfirm(
-  rpc: Rpc<SolanaRpcApi>,
-  signedBase64: Base64EncodedWireTransaction,
-  lastValidBlockHeight: number,
-): Promise<string> {
-  const signature = await rpc
-    .sendTransaction(signedBase64, { encoding: "base64", skipPreflight: true })
-    .send();
-
-  const startTime = Date.now();
-  while (Date.now() - startTime < CONFIRMATION_TIMEOUT_MS) {
-    const blockHeight = await rpc.getBlockHeight().send();
-    if (blockHeight > lastValidBlockHeight) {
-      throw new Error("Transaction expired before confirmation. The swap was not executed. Try again.");
-    }
-
-    const { value: statuses } = await rpc.getSignatureStatuses([signature]).send();
-    const status = statuses[0];
-    if (status) {
-      if (status.err) {
-        throw new Error(formatTransactionError(status.err));
-      }
-      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
-        return signature;
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_POLL_INTERVAL_MS));
-  }
-
-  throw new Error(`Transaction confirmation timed out. Check status manually: ${signature}`);
 }
 
 export async function executeSwap(
@@ -94,7 +60,12 @@ export async function executeSwap(
 
     currentStep = "sending transaction";
     onStatus?.("Broadcasting transaction...");
-    const signature = await sendAndConfirm(rpc, signedBase64, swapResponse.lastValidBlockHeight);
+    const signature = await sendAndConfirmTransaction({
+      rpc,
+      signedTransaction: signedBase64,
+      lastValidBlockHeight: BigInt(swapResponse.lastValidBlockHeight),
+      expiredMessage: "Transaction expired before confirmation. The swap was not executed. Try again.",
+    });
 
     return {
       success: true,

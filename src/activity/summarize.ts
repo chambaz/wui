@@ -50,12 +50,13 @@ function buildSwapSummary(tx: ParsedTransaction, walletAddress: string): string 
   ).filter((c) => c.mint !== NATIVE_SOL_MINT);
 
   const walletIndex = tx.transaction.message.accountKeys.findIndex((k) => k.pubkey === walletAddress);
+  const feeSol = Number(tx.meta.fee ?? 0n) / 1e9;
   const solDiff = walletIndex >= 0
-    ? Number(BigInt(tx.meta.postBalances[walletIndex] ?? 0) - BigInt(tx.meta.preBalances[walletIndex] ?? 0)) / 1e9
+    ? Number(BigInt(tx.meta.postBalances[walletIndex] ?? 0) - BigInt(tx.meta.preBalances[walletIndex] ?? 0) + BigInt(tx.meta.fee ?? 0n)) / 1e9
     : 0;
 
   const allChanges: Array<{ label: string; delta: number }> = [];
-  if (Math.abs(solDiff) > 0.001) allChanges.push({ label: "SOL", delta: solDiff });
+  if (Math.abs(solDiff) > 0.001 || feeSol > 0) allChanges.push({ label: "SOL", delta: solDiff });
   for (const c of tokenChanges) allChanges.push({ label: mintSymbol(c.mint), delta: c.delta });
 
   const sold = allChanges.find((c) => c.delta < 0);
@@ -70,6 +71,29 @@ function detectTransfer(tx: ParsedTransaction, walletAddress: string): Classifie
   if (!tx.meta) return null;
   const accountKeys = tx.transaction.message.accountKeys;
   const walletIndex = accountKeys.findIndex((k) => k.pubkey === walletAddress);
+
+  for (const ix of tx.transaction.message.instructions) {
+    if (ix.program === "system" && ix.parsed?.type === "transfer") {
+      const info = ix.parsed.info;
+      const source = typeof info?.source === "string" ? info.source : null;
+      const destination = typeof info?.destination === "string" ? info.destination : null;
+      const lamports = typeof info?.lamports === "number"
+        ? info.lamports
+        : typeof info?.lamports === "string"
+          ? Number(info.lamports)
+          : null;
+
+      if (lamports !== null) {
+        const amount = formatCompact(lamports / 1e9);
+        if (source === walletAddress) {
+          return { type: "transfer-out", summary: `Sent ${amount} SOL` };
+        }
+        if (destination === walletAddress) {
+          return { type: "transfer-in", summary: `Received ${amount} SOL` };
+        }
+      }
+    }
+  }
 
   const tokenChanges = computeTokenChanges(
     tx.meta.preTokenBalances,
@@ -88,7 +112,7 @@ function detectTransfer(tx: ParsedTransaction, walletAddress: string): Classifie
   if (walletIndex >= 0) {
     const preSol = BigInt(tx.meta.preBalances[walletIndex] ?? 0);
     const postSol = BigInt(tx.meta.postBalances[walletIndex] ?? 0);
-    const diff = Number(postSol - preSol) / 1e9;
+    const diff = Number(postSol - preSol + BigInt(tx.meta.fee ?? 0n)) / 1e9;
     if (Math.abs(diff) > 0.001) {
       const amt = formatCompact(Math.abs(diff));
       if (diff > 0) return { type: "transfer-in", summary: `Received ${amt} SOL` };

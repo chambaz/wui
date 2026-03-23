@@ -7,7 +7,7 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount } from "../../lib/format.js";
+import { truncateAddress, formatAmount, parseDecimalAmount } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
 
@@ -69,13 +69,14 @@ export default function SendScreen({
     if (!walletAddress || fetchInFlight.current) return;
     fetchInFlight.current = true;
     setLoadingBalances(true);
-    try {
-      const bals = await fetchAllBalances(rpc, walletAddress);
-      const mints = bals.map((b) => b.mint);
-      const meta = await fetchTokenMetadata(mints, jupiterApiKey);
-      setBalances(bals);
-      setMetadata(meta);
-      setError(null);
+      try {
+        const bals = await fetchAllBalances(rpc, walletAddress);
+        const mints = bals.map((b) => b.mint);
+        const meta = await fetchTokenMetadata(mints, jupiterApiKey);
+        setBalances(bals);
+        setMetadata(meta);
+        setSelectedIndex((prev) => Math.min(prev, Math.max(0, bals.length - 1)));
+        setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load balances");
     } finally {
@@ -143,9 +144,7 @@ export default function SendScreen({
           ? maxSendableSol(sourceToken.rawBalance)
           : sourceToken.rawBalance;
       } else {
-        const [whole = "0", frac = ""] = amountInput.split(".");
-        const paddedFrac = frac.padEnd(sourceToken.decimals, "0").slice(0, sourceToken.decimals);
-        rawAmount = BigInt(whole + paddedFrac);
+        rawAmount = parseDecimalAmount(amountInput, sourceToken.decimals) ?? 0n;
       }
 
       if (rawAmount <= 0n) {
@@ -229,11 +228,11 @@ export default function SendScreen({
 
       // --- Select token ---
       if (step === "select-token") {
-        if (key.upArrow) {
+        if (key.upArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.max(0, i - 1));
           return;
         }
-        if (key.downArrow) {
+        if (key.downArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.min(balances.length - 1, i + 1));
           return;
         }

@@ -7,7 +7,7 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount } from "../../lib/format.js";
+import { truncateAddress, formatAmount, parseDecimalAmount } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
 
@@ -78,13 +78,14 @@ export default function SwapScreen({
     if (!walletAddress || fetchInFlight.current) return;
     fetchInFlight.current = true;
     setLoadingBalances(true);
-    try {
-      const bals = await fetchAllBalances(rpc, walletAddress);
-      const mints = bals.map((b) => b.mint);
-      const meta = await fetchTokenMetadata(mints, jupiterApiKey);
-      setBalances(bals);
-      setMetadata(meta);
-      setError(null);
+      try {
+        const bals = await fetchAllBalances(rpc, walletAddress);
+        const mints = bals.map((b) => b.mint);
+        const meta = await fetchTokenMetadata(mints, jupiterApiKey);
+        setBalances(bals);
+        setMetadata(meta);
+        setSelectedIndex((prev) => Math.min(prev, Math.max(0, bals.length - 1)));
+        setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load balances");
     } finally {
@@ -156,15 +157,12 @@ export default function SwapScreen({
       if (amountInput === "max") {
         amountNum = sourceToken.rawBalance;
       } else {
-        const parsed = Number(amountInput);
-        if (Number.isNaN(parsed) || parsed <= 0) {
+        amountNum = parseDecimalAmount(amountInput, sourceToken.decimals) ?? 0n;
+        if (amountNum <= 0n) {
           setError("Enter a valid amount greater than 0.");
           setLoadingQuote(false);
           return;
         }
-        const [whole = "0", frac = ""] = amountInput.split(".");
-        const paddedFrac = frac.padEnd(sourceToken.decimals, "0").slice(0, sourceToken.decimals);
-        amountNum = BigInt(whole + paddedFrac);
       }
 
       const q = await getSwapQuote(
@@ -265,11 +263,11 @@ export default function SwapScreen({
 
       // --- Select source token ---
       if (step === "select-source") {
-        if (key.upArrow) {
+        if (key.upArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.max(0, i - 1));
           return;
         }
-        if (key.downArrow) {
+        if (key.downArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.min(balances.length - 1, i + 1));
           return;
         }

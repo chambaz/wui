@@ -38,6 +38,13 @@ export function formatAmount(amount: string, decimals: number): string {
   return num.toLocaleString("en-US", { maximumFractionDigits: Math.min(decimals, 6) });
 }
 
+export function parseDecimalAmount(input: string, decimals: number): bigint | null {
+  if (!/^\d+(?:\.\d+)?$/.test(input)) return null;
+  const [whole = "0", frac = ""] = input.split(".");
+  const paddedFrac = frac.padEnd(decimals, "0").slice(0, decimals);
+  return BigInt(whole + paddedFrac);
+}
+
 export function formatTime(unixSeconds: number): string {
   const diff = Math.floor(Date.now() / 1000) - unixSeconds;
   if (diff < 60) return "just now";

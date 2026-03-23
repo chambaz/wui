@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
-import { truncateAddress, formatBalance } from "../../lib/format.js";
+import { truncateAddress, formatBalance, parseDecimalAmount } from "../../lib/format.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import {
   STAKE_PROVIDERS,
@@ -137,7 +137,10 @@ export default function StakingScreen({
         throw new Error("Could not load wallet signer.");
       }
 
-      const lamports = BigInt(Math.floor(parseFloat(amountInput) * 1e9));
+      const lamports = parseDecimalAmount(amountInput, 9);
+      if (lamports === null || lamports <= 0n) {
+        throw new Error("Invalid amount.");
+      }
 
         if (stakeTarget.mode === "liquid") {
         const sig = await depositToStakePool(

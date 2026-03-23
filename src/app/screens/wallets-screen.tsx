@@ -82,11 +82,11 @@ export default function WalletsScreen({
 
       // --- List view ---
       if (step === "list") {
-        if (key.upArrow) {
+        if (key.upArrow && wallets.length > 0) {
           setSelectedIndex((i) => Math.max(0, i - 1));
           return;
         }
-        if (key.downArrow) {
+        if (key.downArrow && wallets.length > 0) {
           setSelectedIndex((i) => Math.min(wallets.length - 1, i + 1));
           return;
         }

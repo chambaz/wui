@@ -6,6 +6,7 @@ import { classifyTransaction } from "./summarize.js";
 import type { SignatureEntry, ParsedTransaction } from "./types.js";
 
 const FETCH_MULTIPLIER = 5;
+const MAX_SIGNATURE_PAGES = 5;
 
 function walletIsSigner(tx: ParsedTransaction, walletAddress: string): boolean {
   return tx.transaction.message.accountKeys.some((k) => k.pubkey === walletAddress && k.signer);
@@ -17,35 +18,52 @@ export async function fetchRecentActivity(
   apiKey: string,
   limit = 5,
 ): Promise<ActivityEntry[]> {
-  const fetchCount = limit * FETCH_MULTIPLIER;
-  const signatures = await rpc.getSignaturesForAddress(address(walletAddress), { limit: fetchCount }).send();
-  if (signatures.length === 0) return [];
-
   const BATCH_SIZE = 10;
-  const sigEntries = signatures as readonly SignatureEntry[];
-  const txResults: Array<{ sig: SignatureEntry; tx: ParsedTransaction | null }> = [];
+  const signerTxs: Array<{ sig: SignatureEntry; tx: ParsedTransaction }> = [];
+  let before: string | undefined;
 
-  for (let i = 0; i < sigEntries.length; i += BATCH_SIZE) {
-    const batch = sigEntries.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map(async (sig) => {
-        try {
-          const tx = await rpc
-            .getTransaction(signature(sig.signature), {
-              encoding: "jsonParsed",
-              maxSupportedTransactionVersion: 0,
-            })
-            .send();
-          return { sig, tx: tx as ParsedTransaction | null };
-        } catch {
-          return { sig, tx: null };
-        }
-      }),
-    );
-    txResults.push(...batchResults);
+  for (let page = 0; page < MAX_SIGNATURE_PAGES && signerTxs.length < limit; page += 1) {
+    const signatures = await rpc
+      .getSignaturesForAddress(address(walletAddress), {
+        limit: limit * FETCH_MULTIPLIER,
+        ...(before ? { before: signature(before) } : {}),
+      })
+      .send();
+
+    if (signatures.length === 0) break;
+
+    const sigEntries = signatures as readonly SignatureEntry[];
+    const txResults: Array<{ sig: SignatureEntry; tx: ParsedTransaction | null }> = [];
+
+    for (let i = 0; i < sigEntries.length; i += BATCH_SIZE) {
+      const batch = sigEntries.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (sig) => {
+          try {
+            const tx = await rpc
+              .getTransaction(signature(sig.signature), {
+                encoding: "jsonParsed",
+                maxSupportedTransactionVersion: 0,
+              })
+              .send();
+            return { sig, tx: tx as ParsedTransaction | null };
+          } catch {
+            return { sig, tx: null };
+          }
+        }),
+      );
+      txResults.push(...batchResults);
+    }
+
+    for (const result of txResults) {
+      if (result.tx && walletIsSigner(result.tx, walletAddress)) {
+        signerTxs.push({ sig: result.sig, tx: result.tx });
+        if (signerTxs.length >= limit) break;
+      }
+    }
+
+    before = sigEntries[sigEntries.length - 1]?.signature;
   }
-
-  const signerTxs = txResults.filter(({ tx }) => tx !== null && walletIsSigner(tx, walletAddress)).slice(0, limit);
 
   const allMints = new Set<string>();
   for (const { tx } of signerTxs) {

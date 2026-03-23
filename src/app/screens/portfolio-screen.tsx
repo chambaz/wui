@@ -222,11 +222,11 @@ export default function PortfolioScreen({
       }
 
       // Row navigation — detail drawer stays open while moving.
-      if (key.upArrow) {
+      if (key.upArrow && rows.length > 0) {
         setSelectedIndex((i) => Math.max(0, i - 1));
         return;
       }
-      if (key.downArrow) {
+      if (key.downArrow && rows.length > 0) {
         setSelectedIndex((i) => Math.min(rows.length - 1, i + 1));
         return;
       }
@@ -247,7 +247,7 @@ export default function PortfolioScreen({
       }
 
       // Toggle detail.
-      if (key.return) {
+      if (key.return && rows.length > 0) {
         setShowDetail((v) => !v);
         return;
       }

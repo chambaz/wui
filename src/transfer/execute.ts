@@ -12,43 +12,12 @@ import {
   signTransactionMessageWithSigners,
   getBase64EncodedWireTransaction,
 } from "@solana/kit";
-import { formatTransactionError } from "../lib/errors.js";
+import { sendAndConfirmTransaction } from "../lib/confirm.js";
 import type { TransferRequest, TransferResult } from "../types/transfer.js";
-import { CONFIRMATION_POLL_INTERVAL_MS, CONFIRMATION_TIMEOUT_MS, MIN_SOL_RESERVE_LAMPORTS } from "./constants.js";
+import { MIN_SOL_RESERVE_LAMPORTS } from "./constants.js";
 import { getAssociatedTokenAddress, accountExists, buildCreateAtaInstruction } from "./ata.js";
 import { getTokenProgramForMint } from "./token-program.js";
 import { buildSolTransferInstruction, buildTokenTransferInstruction } from "./instructions.js";
-
-async function sendAndConfirm(
-  rpc: Rpc<SolanaRpcApi>,
-  signedBase64: ReturnType<typeof getBase64EncodedWireTransaction>,
-  lastValidBlockHeight: bigint,
-): Promise<string> {
-  const signature = await rpc
-    .sendTransaction(signedBase64, { encoding: "base64", skipPreflight: true })
-    .send();
-
-  const startTime = Date.now();
-  while (Date.now() - startTime < CONFIRMATION_TIMEOUT_MS) {
-    const blockHeight = await rpc.getBlockHeight().send();
-    if (blockHeight > lastValidBlockHeight) {
-      throw new Error("Transaction expired before confirmation. The transfer was not executed. Try again.");
-    }
-
-    const { value: statuses } = await rpc.getSignatureStatuses([signature]).send();
-    const status = statuses[0];
-    if (status) {
-      if (status.err) throw new Error(formatTransactionError(status.err));
-      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
-        return signature;
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_POLL_INTERVAL_MS));
-  }
-
-  throw new Error(`Transaction confirmation timed out. Check status manually: ${signature}`);
-}
 
 export async function executeTransfer(
   request: TransferRequest,
@@ -100,7 +69,12 @@ export async function executeTransfer(
 
     currentStep = "sending transaction";
     onStatus?.("Broadcasting transaction...");
-    const signature = await sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
+    const signature = await sendAndConfirmTransaction({
+      rpc,
+      signedTransaction: encoded,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      expiredMessage: "Transaction expired before confirmation. The transfer was not executed. Try again.",
+    });
 
     return {
       success: true,

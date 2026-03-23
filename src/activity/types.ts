@@ -22,6 +22,7 @@ export interface TokenBalanceEntry {
 
 export interface ParsedTransactionMeta {
   err: unknown;
+  fee: bigint;
   preBalances: bigint[];
   postBalances: bigint[];
   preTokenBalances: TokenBalanceEntry[];

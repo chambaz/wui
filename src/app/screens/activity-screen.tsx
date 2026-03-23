@@ -92,11 +92,11 @@ export default function ActivityScreen({
         loadActivity();
         return;
       }
-      if (key.upArrow) {
+      if (key.upArrow && entries.length > 0) {
         setSelectedIndex((i) => Math.max(0, i - 1));
         return;
       }
-      if (key.downArrow) {
+      if (key.downArrow && entries.length > 0) {
         setSelectedIndex((i) => Math.min(entries.length - 1, i + 1));
         return;
       }
@@ -111,7 +111,7 @@ export default function ActivityScreen({
         setShowDetail(false);
         return;
       }
-      if (key.return) {
+      if (key.return && entries.length > 0) {
         setShowDetail((v) => !v);
         return;
       }

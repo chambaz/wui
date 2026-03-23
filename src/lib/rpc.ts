@@ -1,17 +1,7 @@
 import { createSolanaRpc, type Rpc, type SolanaRpcApi } from "@solana/kit";
 
-let instance: Rpc<SolanaRpcApi> | null = null;
-
 export function initRpc(url: string): Rpc<SolanaRpcApi> {
-  instance = createSolanaRpc(url);
-  return instance;
-}
-
-export function getRpc(): Rpc<SolanaRpcApi> {
-  if (!instance) {
-    throw new Error("RPC not initialized. Call initRpc() first.");
-  }
-  return instance;
+  return createSolanaRpc(url);
 }
 
 /** Ping the RPC with a lightweight call to verify connectivity. */

@@ -1,3 +1,4 @@
+import { parseDecimalAmount } from "../lib/format.js";
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata } from "../pricing/index.js";
 import { getActiveWalletSigner } from "../wallet/index.js";
@@ -66,13 +67,10 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
       displayAmount = token.balance.toLocaleString("en-US", { maximumFractionDigits: 6 });
     }
   } else {
-    const parsed = Number(amountArg);
-    if (Number.isNaN(parsed) || parsed <= 0) {
+    rawAmount = parseDecimalAmount(amountArg, token.decimals) ?? 0n;
+    if (rawAmount <= 0n) {
       throw new Error(`Invalid amount: ${amountArg}`);
     }
-    const [whole = "0", frac = ""] = amountArg.split(".");
-    const paddedFrac = frac.padEnd(token.decimals, "0").slice(0, token.decimals);
-    rawAmount = BigInt(whole + paddedFrac);
     if (rawAmount > token.rawBalance) {
       throw new Error(
         `Insufficient balance. Have ${token.balance}, sending ${amountArg}.`,
