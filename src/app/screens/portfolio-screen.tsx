@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../../pricing/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatNumber, formatUsd, formatBalance, formatPercent } from "../../lib/format.js";
+import {
+  truncateAddress,
+  formatUsd,
+  formatBalance,
+  formatPercent,
+} from "../../lib/format.js";
 import type {
   PortfolioRow,
   PortfolioSummary,
@@ -72,7 +77,8 @@ function computeSummary(rows: PortfolioRow[]): PortfolioSummary {
   return {
     totalValue,
     change24h,
-    changePercent24h: totalValue > 0 ? (change24h / (totalValue - change24h)) * 100 : null,
+    changePercent24h:
+      totalValue > 0 ? (change24h / (totalValue - change24h)) * 100 : null,
   };
 }
 
@@ -117,7 +123,9 @@ export default function PortfolioScreen({
 
   // Notify parent of selected mint — only when detail drawer is open.
   useEffect(() => {
-    const selectedMint = showDetail ? (rows[selectedIndex]?.mint ?? null) : null;
+    const selectedMint = showDetail
+      ? (rows[selectedIndex]?.mint ?? null)
+      : null;
     onSelectedMintChange(selectedMint);
   }, [selectedIndex, rows, showDetail, onSelectedMintChange]);
 
@@ -150,12 +158,17 @@ export default function PortfolioScreen({
 
         setRows(newRows);
         setSummary(newSummary);
-        setSelectedIndex((prev) => Math.min(prev, Math.max(0, newRows.length - 1)));
+        setSelectedIndex((prev) =>
+          Math.min(prev, Math.max(0, newRows.length - 1)),
+        );
         setError(null);
         setRefreshError(false);
         setLastUpdated(new Date());
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Unknown error fetching portfolio";
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unknown error fetching portfolio";
         if (isInitial) {
           setError(message);
         } else {
@@ -306,7 +319,9 @@ export default function PortfolioScreen({
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Text bold>Portfolio</Text>
         <Box marginTop={1}>
-          <Text dimColor>No tokens found. Fund your wallet or import a different one.</Text>
+          <Text dimColor>
+            No tokens found. Fund your wallet or import a different one.
+          </Text>
         </Box>
       </Box>
     );
@@ -323,7 +338,9 @@ export default function PortfolioScreen({
         <Text bold>Portfolio</Text>
         <Box gap={2}>
           {refreshing && <Text dimColor>refreshing...</Text>}
-          {refreshError && !refreshing && <Text color="yellow">refresh failed</Text>}
+          {refreshError && !refreshing && (
+            <Text color="yellow">refresh failed</Text>
+          )}
           {lastUpdated && !refreshing && (
             <Text dimColor>updated {timeAgo(lastUpdated)}</Text>
           )}
@@ -342,8 +359,8 @@ export default function PortfolioScreen({
               <Text dimColor>24h: </Text>
               <Text color={summary.change24h >= 0 ? "green" : "red"}>
                 {summary.change24h >= 0 ? "+" : ""}
-                {formatUsd(Math.abs(summary.change24h))}{" "}
-                ({formatPercent(summary.changePercent24h)})
+                {formatUsd(Math.abs(summary.change24h))} (
+                {formatPercent(summary.changePercent24h)})
               </Text>
             </Box>
           )}
@@ -369,15 +386,16 @@ export default function PortfolioScreen({
 
         return (
           <Box key={row.mint}>
-            <Text
-              color={isSelected ? "cyan" : undefined}
-              bold={isSelected}
-            >
+            <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
               {indicator}
               {row.symbol.padEnd(COL.token)}
               {formatBalance(row.balance, row.decimals).padStart(COL.balance)}
-              {(row.usdPrice !== null ? formatUsd(row.usdPrice) : "-").padStart(COL.price)}
-              {(row.usdValue !== null ? formatUsd(row.usdValue) : "-").padStart(COL.value)}
+              {(row.usdPrice !== null ? formatUsd(row.usdPrice) : "-").padStart(
+                COL.price,
+              )}
+              {(row.usdValue !== null ? formatUsd(row.usdValue) : "-").padStart(
+                COL.value,
+              )}
             </Text>
             {row.priceChange24h !== null ? (
               <Text color={row.priceChange24h >= 0 ? "green" : "red"}>
@@ -446,8 +464,7 @@ export default function PortfolioScreen({
         <Text dimColor>
           {showDetail
             ? "[up/down] navigate  [y] copy mint  [esc] close"
-            : "[up/down] navigate  [enter] details"
-          }
+            : "[up/down] navigate  [enter] details"}
         </Text>
         {copied && <Text color="green">copied!</Text>}
       </Box>

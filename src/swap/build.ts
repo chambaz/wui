@@ -1,7 +1,6 @@
 import { JUPITER_BASE_URL } from "../lib/format.js";
 import { fetchWithTimeout } from "../lib/errors.js";
 import { MAX_PRIORITY_FEE_LAMPORTS } from "./constants.js";
-import { getJupiterHeaders } from "./quote.js";
 import type { JupiterSwapResponse } from "./types.js";
 import type { SwapQuote } from "../types/swap.js";
 
@@ -27,7 +26,10 @@ export async function buildSwapTransaction(
 
   const res = await fetchWithTimeout(`${JUPITER_BASE_URL}/swap/v1/swap`, {
     method: "POST",
-    headers: getJupiterHeaders(apiKey),
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(body),
   }, "Jupiter API");
 

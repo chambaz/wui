@@ -4,13 +4,6 @@ import { JUPITER_BASE_URL } from "../lib/format.js";
 import { PLATFORM_FEE_BPS } from "./constants.js";
 import { type JupiterQuoteResponse, toSwapQuote } from "./types.js";
 
-function jupiterHeaders(apiKey: string): Record<string, string> {
-  return {
-    "x-api-key": apiKey,
-    "Content-Type": "application/json",
-  };
-}
-
 export async function getSwapQuote(
   request: SwapQuoteRequest,
   apiKey: string,
@@ -37,8 +30,4 @@ export async function getSwapQuote(
 
   const raw = (await res.json()) as JupiterQuoteResponse;
   return toSwapQuote(raw);
-}
-
-export function getJupiterHeaders(apiKey: string): Record<string, string> {
-  return jupiterHeaders(apiKey);
 }

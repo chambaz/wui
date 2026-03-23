@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import React from "react";
 import { render } from "ink";
 import { loadConfig } from "./lib/config.js";
 import { initRpc, checkRpcHealth } from "./lib/rpc.js";

@@ -8,10 +8,6 @@ import {
   priceCache,
 } from "./cache.js";
 
-function jupiterHeaders(apiKey: string): Record<string, string> {
-  return { "x-api-key": apiKey };
-}
-
 export async function fetchTokenPrices(
   mints: string[],
   apiKey: string,
@@ -40,7 +36,7 @@ export async function fetchTokenPrices(
     batches.map(async (batch) => {
       const ids = batch.join(",");
       const url = `${JUPITER_BASE_URL}/price/v3?ids=${ids}`;
-      const res = await fetchWithTimeout(url, { headers: jupiterHeaders(apiKey) }, "Jupiter API");
+      const res = await fetchWithTimeout(url, { headers: { "x-api-key": apiKey } }, "Jupiter API");
 
       if (!res.ok) {
         throw new Error(`Jupiter Price API error: ${res.status} ${res.statusText}`);

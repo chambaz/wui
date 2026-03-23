@@ -10,10 +10,6 @@ import {
   toTokenMetadata,
 } from "./cache.js";
 
-function jupiterHeaders(apiKey: string): Record<string, string> {
-  return { "x-api-key": apiKey };
-}
-
 export async function fetchTokenMetadata(
   mints: string[],
   apiKey: string,
@@ -39,7 +35,7 @@ export async function fetchTokenMetadata(
     batches.map(async (batch) => {
       const query = batch.join(",");
       const url = `${JUPITER_BASE_URL}/tokens/v2/search?query=${query}`;
-      const res = await fetchWithTimeout(url, { headers: jupiterHeaders(apiKey) }, "Jupiter API");
+      const res = await fetchWithTimeout(url, { headers: { "x-api-key": apiKey } }, "Jupiter API");
 
       if (!res.ok) {
         throw new Error(`Jupiter Tokens API error: ${res.status} ${res.statusText}`);

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 import {
@@ -8,26 +8,17 @@ import {
 import type { WalletEntry, WalletStore } from "../types/wallet.js";
 
 const DATA_DIR = join(homedir(), ".wui");
-const LEGACY_DATA_DIR = join(homedir(), ".walletui");
 const STORE_PATH = join(DATA_DIR, "wallets.json");
 const KEYS_DIR = join(DATA_DIR, "keys");
 
 // --- Storage helpers ---
 
-/** Migrate from legacy ~/.walletui/ to ~/.wui/ if needed. */
-function migrateLegacyDir(): void {
-  if (existsSync(LEGACY_DATA_DIR) && !existsSync(DATA_DIR)) {
-    renameSync(LEGACY_DATA_DIR, DATA_DIR);
-  }
-}
-
-function ensureDataDir(): void {
-  migrateLegacyDir();
+function ensureKeysDir(): void {
   mkdirSync(KEYS_DIR, { recursive: true });
 }
 
 function readStore(): WalletStore {
-  ensureDataDir();
+  ensureKeysDir();
   if (!existsSync(STORE_PATH)) {
     return { wallets: [] };
   }
@@ -42,7 +33,7 @@ function readStore(): WalletStore {
 }
 
 function writeStore(store: WalletStore): void {
-  ensureDataDir();
+  ensureKeysDir();
   writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), { encoding: "utf-8", mode: 0o600 });
 }
 
