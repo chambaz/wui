@@ -1,9 +1,9 @@
 import { type Rpc, type SolanaRpcApi, address } from "@solana/kit";
 import type { StakeAccountInfo, StakeStatus } from "../types/staking.js";
 import { MAX_EPOCH, STAKE_ACCOUNT_SIZE } from "./constants.js";
-import { resolveValidatorLabel } from "./validators-store.js";
+import { loadCustomValidators, resolveValidatorLabel } from "./validators-store.js";
 
-export function getStakeAccountStatus(
+function getStakeAccountStatus(
   activationEpoch: bigint,
   deactivationEpoch: bigint,
   currentEpoch: bigint,
@@ -21,6 +21,7 @@ export async function fetchStakeAccounts(
 ): Promise<StakeAccountInfo[]> {
   const epochInfo = await rpc.getEpochInfo().send();
   const currentEpoch = BigInt(epochInfo.epoch);
+  const savedValidators = loadCustomValidators();
 
   const accounts = await rpc
     .getProgramAccounts(address("Stake11111111111111111111111111111111111111"), {
@@ -52,7 +53,7 @@ export async function fetchStakeAccounts(
       balance: Number(lamports) / 1e9,
       status,
       validator,
-      validatorLabel: validator ? resolveValidatorLabel(validator) : null,
+      validatorLabel: validator ? resolveValidatorLabel(validator, savedValidators) : null,
     });
   }
 

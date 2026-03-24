@@ -12,7 +12,7 @@ export interface StakeAccountInfo {
 }
 
 /** Staking provider identifier. */
-export type StakeProviderId = "jito" | "p0";
+export type StakeProviderId = string;
 
 /** Validator metadata for native staking. */
 export interface ValidatorInfo {

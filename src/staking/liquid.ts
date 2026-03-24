@@ -3,6 +3,7 @@ import {
   type SolanaRpcApi,
   type KeyPairSigner,
   address,
+  generateKeyPairSigner,
   getAddressEncoder,
   getAddressDecoder,
   getProgramDerivedAddress,
@@ -22,6 +23,14 @@ import {
 import { ATA_PROGRAM, STAKE_POOL_PROGRAM, SYSTEM_PROGRAM, TOKEN_PROGRAM } from "./constants.js";
 import { sendAndConfirm } from "./confirm.js";
 
+interface StakePoolInfo {
+  reserveStake: string;
+  poolMint: string;
+  managerFeeAccount: string;
+  solDepositAuthority: string | null;
+  solWithdrawAuthority: string | null;
+}
+
 async function getAssociatedTokenAddress(owner: string, mint: string): Promise<string> {
   const encoder = getAddressEncoder();
   const [ata] = await getProgramDerivedAddress({
@@ -36,14 +45,10 @@ async function getAssociatedTokenAddress(owner: string, mint: string): Promise<s
 }
 
 async function accountExists(rpc: Rpc<SolanaRpcApi>, addr: string): Promise<boolean> {
-  try {
-    const info = await rpc
-      .getAccountInfo(address(addr), { encoding: "base64", dataSlice: { offset: 0, length: 0 } })
-      .send();
-    return info.value !== null;
-  } catch {
-    return false;
-  }
+  const info = await rpc
+    .getAccountInfo(address(addr), { encoding: "base64", dataSlice: { offset: 0, length: 0 } })
+    .send();
+  return info.value !== null;
 }
 
 function buildCreateAtaInstruction(payer: string, ataAddress: string, owner: string, mint: string) {
@@ -61,9 +66,113 @@ function buildCreateAtaInstruction(payer: string, ataAddress: string, owner: str
   };
 }
 
+function buildApproveInstruction(source: string, delegate: string, owner: string, amount: bigint) {
+  const approveEncoder = getStructEncoder([
+    ["instruction", getU8Encoder()],
+    ["amount", getU64Encoder()],
+  ] as const);
+
+  return {
+    programAddress: address(TOKEN_PROGRAM),
+    accounts: [
+      { address: address(source), role: AccountRole.WRITABLE },
+      { address: address(delegate), role: AccountRole.READONLY },
+      { address: address(owner), role: AccountRole.READONLY_SIGNER },
+    ],
+    data: approveEncoder.encode({ instruction: 4, amount }),
+  };
+}
+
 function decodeAddressFromBytes(bytes: Uint8Array): string {
   const decoder = getAddressDecoder();
   return decoder.decode(bytes);
+}
+
+function readOptionalAddress(poolData: Uint8Array, offset: number): { value: string | null; nextOffset: number } {
+  const discriminator = poolData[offset];
+  if (discriminator === 0) {
+    return { value: null, nextOffset: offset + 1 };
+  }
+
+  if (discriminator === 1) {
+    const start = offset + 1;
+    const end = start + 32;
+    return { value: decodeAddressFromBytes(poolData.slice(start, end)), nextOffset: end };
+  }
+
+  throw new Error("Invalid optional address in stake pool account.");
+}
+
+function skipFutureEpoch(poolData: Uint8Array, offset: number, span: number): number {
+  const discriminator = poolData[offset];
+  if (discriminator === 0) {
+    return offset + 1;
+  }
+
+  if (discriminator === 2) {
+    return offset + 1 + span;
+  }
+
+  throw new Error("Invalid future epoch field in stake pool account.");
+}
+
+function decodeStakePoolInfo(poolData: Uint8Array): StakePoolInfo {
+  if (poolData.length < 226) {
+    throw new Error("Invalid stake pool account.");
+  }
+
+  let cursor = 226;
+  cursor += 32; // tokenProgramId
+  cursor += 8; // totalLamports
+  cursor += 8; // poolTokenSupply
+  cursor += 8; // lastUpdateEpoch
+  cursor += 48; // lockup
+  cursor += 16; // epochFee
+  cursor = skipFutureEpoch(poolData, cursor, 16);
+  cursor = readOptionalAddress(poolData, cursor).nextOffset;
+  cursor = readOptionalAddress(poolData, cursor).nextOffset;
+  cursor += 16; // stakeDepositFee
+  cursor += 16; // stakeWithdrawalFee
+  cursor = skipFutureEpoch(poolData, cursor, 16);
+  cursor += 1; // stakeReferralFee
+  const solDepositAuthorityResult = readOptionalAddress(poolData, cursor);
+  cursor = solDepositAuthorityResult.nextOffset;
+  cursor += 16; // solDepositFee
+  cursor += 1; // solReferralFee
+  const solWithdrawAuthority = readOptionalAddress(poolData, cursor).value;
+
+  return {
+    reserveStake: decodeAddressFromBytes(poolData.slice(130, 162)),
+    poolMint: decodeAddressFromBytes(poolData.slice(162, 194)),
+    managerFeeAccount: decodeAddressFromBytes(poolData.slice(194, 226)),
+    solDepositAuthority: solDepositAuthorityResult.value,
+    solWithdrawAuthority,
+  };
+}
+
+export async function fetchStakePoolInfo(
+  rpc: Rpc<SolanaRpcApi>,
+  stakePoolAddress: string,
+): Promise<StakePoolInfo> {
+  const poolInfo = await rpc.getAccountInfo(address(stakePoolAddress), { encoding: "base64" }).send();
+  if (!poolInfo.value) {
+    throw new Error("Stake pool account not found.");
+  }
+
+  if (poolInfo.value.owner !== STAKE_POOL_PROGRAM) {
+    throw new Error("Account is not an SPL stake pool.");
+  }
+
+  const poolData = new Uint8Array(Buffer.from(poolInfo.value.data[0], "base64"));
+  const decoded = decodeStakePoolInfo(poolData);
+  if (decoded.solDepositAuthority) {
+    throw new Error("Stake pool requires a SOL deposit authority and is not supported.");
+  }
+  if (decoded.solWithdrawAuthority) {
+    throw new Error("Stake pool requires a SOL withdraw authority and is not supported.");
+  }
+
+  return decoded;
 }
 
 export async function depositToStakePool(
@@ -75,13 +184,7 @@ export async function depositToStakePool(
 ): Promise<string> {
   onStatus?.("Fetching pool data...");
 
-  const poolInfo = await rpc.getAccountInfo(address(stakePoolAddress), { encoding: "base64" }).send();
-  if (!poolInfo.value) throw new Error("Stake pool account not found.");
-
-  const poolData = new Uint8Array(Buffer.from(poolInfo.value.data[0], "base64"));
-  const reserveStake = decodeAddressFromBytes(poolData.slice(130, 162));
-  const poolMint = decodeAddressFromBytes(poolData.slice(162, 194));
-  const managerFeeAccount = decodeAddressFromBytes(poolData.slice(194, 226));
+  const { reserveStake, poolMint, managerFeeAccount } = await fetchStakePoolInfo(rpc, stakePoolAddress);
 
   const encoder = getAddressEncoder();
   const [withdrawAuthority] = await getProgramDerivedAddress({
@@ -109,7 +212,7 @@ export async function depositToStakePool(
       { address: address(signer.address), role: AccountRole.WRITABLE_SIGNER },
       { address: address(userLstAta), role: AccountRole.WRITABLE },
       { address: address(managerFeeAccount), role: AccountRole.WRITABLE },
-      { address: address(managerFeeAccount), role: AccountRole.WRITABLE },
+      { address: address(userLstAta), role: AccountRole.WRITABLE },
       { address: address(poolMint), role: AccountRole.WRITABLE },
       { address: address(SYSTEM_PROGRAM), role: AccountRole.READONLY },
       { address: address(TOKEN_PROGRAM), role: AccountRole.READONLY },
@@ -135,6 +238,74 @@ export async function depositToStakePool(
   } else {
     txMessage = appendTransactionMessageInstruction(depositSolIx, baseMessage);
   }
+
+  onStatus?.("Signing transaction...");
+  const signedTx = await signTransactionMessageWithSigners(txMessage);
+  const encoded = getBase64EncodedWireTransaction(signedTx);
+
+  onStatus?.("Broadcasting transaction...");
+  return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
+}
+
+export async function withdrawSolFromStakePool(
+  rpc: Rpc<SolanaRpcApi>,
+  signer: KeyPairSigner,
+  stakePoolAddress: string,
+  poolTokens: bigint,
+  onStatus?: (status: string) => void,
+): Promise<string> {
+  onStatus?.("Fetching pool data...");
+
+  const { reserveStake, poolMint, managerFeeAccount } = await fetchStakePoolInfo(rpc, stakePoolAddress);
+  const userLstAta = await getAssociatedTokenAddress(signer.address, poolMint);
+  const lstAtaExists = await accountExists(rpc, userLstAta);
+  if (!lstAtaExists) {
+    throw new Error("LST token account not found for this stake pool.");
+  }
+
+  const encoder = getAddressEncoder();
+  const [withdrawAuthority] = await getProgramDerivedAddress({
+    programAddress: address(STAKE_POOL_PROGRAM),
+    seeds: [encoder.encode(address(stakePoolAddress)), new TextEncoder().encode("withdraw")],
+  });
+
+  const transferAuthority = await generateKeyPairSigner();
+
+  onStatus?.("Building transaction...");
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const withdrawSolEncoder = getStructEncoder([
+    ["instruction", getU8Encoder()],
+    ["poolTokens", getU64Encoder()],
+  ] as const);
+
+  const approveIx = buildApproveInstruction(userLstAta, transferAuthority.address, signer.address, poolTokens);
+  const withdrawSolIx = {
+    programAddress: address(STAKE_POOL_PROGRAM),
+    accounts: [
+      { address: address(stakePoolAddress), role: AccountRole.WRITABLE },
+      { address: address(withdrawAuthority), role: AccountRole.READONLY },
+      { address: address(transferAuthority.address), role: AccountRole.READONLY_SIGNER },
+      { address: address(userLstAta), role: AccountRole.WRITABLE },
+      { address: address(reserveStake), role: AccountRole.WRITABLE },
+      { address: address(signer.address), role: AccountRole.WRITABLE },
+      { address: address(managerFeeAccount), role: AccountRole.WRITABLE },
+      { address: address(poolMint), role: AccountRole.WRITABLE },
+      { address: address("SysvarC1ock11111111111111111111111111111111"), role: AccountRole.READONLY },
+      { address: address("SysvarStakeHistory1111111111111111111111111"), role: AccountRole.READONLY },
+      { address: address("Stake11111111111111111111111111111111111111"), role: AccountRole.READONLY },
+      { address: address(TOKEN_PROGRAM), role: AccountRole.READONLY },
+    ],
+    data: withdrawSolEncoder.encode({ instruction: 16, poolTokens }),
+  };
+
+  const txMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
+    (msg) => appendTransactionMessageInstruction(approveIx, msg),
+    (msg) => appendTransactionMessageInstruction(withdrawSolIx, msg),
+    (msg) => addSignersToTransactionMessage([signer, transferAuthority], msg),
+  );
 
   onStatus?.("Signing transaction...");
   const signedTx = await signTransactionMessageWithSigners(txMessage);
