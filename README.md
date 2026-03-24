@@ -5,13 +5,13 @@ A Solana wallet for the terminal.
 ## Install
 
 ```bash
-npm install -g walletui
+npm install -g @chambaz/walletui
 ```
 
 Or run directly:
 
 ```bash
-npx walletui
+npx @chambaz/walletui
 ```
 
 After installing, run the CLI with:
