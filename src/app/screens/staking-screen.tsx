@@ -3,7 +3,7 @@ import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
-import { truncateAddress, formatBalance, parseDecimalAmount } from "../../lib/format.js";
+import { truncateAddress, formatBalance, parseDecimalAmount, timeAgo } from "../../lib/format.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import {
   DEFAULT_VALIDATORS,
@@ -101,6 +101,8 @@ export default function StakingScreen({
   const [showDetail, setShowDetail] = useState(false);
   const [copied, setCopied] = useState(false);
   const [availableSol, setAvailableSol] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
   const [customPools, setCustomPools] = useState<StakeProvider[]>([]);
   const [customValidators, setCustomValidators] = useState<CustomValidator[]>([]);
   const fetchInFlight = useRef(false);
@@ -170,6 +172,7 @@ export default function StakingScreen({
       const nativeSol = balances.find((balance) => balance.isNative);
       setAvailableSol(nativeSol?.balance ?? 0);
       setSelectedIndex((prev) => Math.min(prev, Math.max(0, accounts.length + liquid.length - 1)));
+      setLastUpdated(new Date());
       setError(null);
     } catch (err: unknown) {
       setStakeAccounts([]);
@@ -200,9 +203,16 @@ export default function StakingScreen({
     setStakeAccounts([]);
     setLiquidPositions([]);
     setAvailableSol(null);
+    setLastUpdated(null);
     setSelectedIndex(0);
     setShowDetail(false);
   }, [walletAddress]);
+
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // --- Reset flow ---
 
@@ -997,7 +1007,10 @@ export default function StakingScreen({
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Box justifyContent="space-between">
         <Text bold>Staking</Text>
-        {loading && <Text dimColor>loading...</Text>}
+        <Box gap={2}>
+          {loading && <Text dimColor>loading...</Text>}
+          {lastUpdated && !loading && <Text dimColor>updated {timeAgo(lastUpdated)}</Text>}
+        </Box>
       </Box>
 
       {error && !loading && (

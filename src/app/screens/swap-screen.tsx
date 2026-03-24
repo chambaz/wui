@@ -7,7 +7,7 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount, parseDecimalAmount } from "../../lib/format.js";
+import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
 
@@ -67,6 +67,8 @@ export default function SwapScreen({
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [searchingTokens, setSearchingTokens] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
   const fetchInFlight = useRef(false);
 
   // Notify parent when text input capture state changes.
@@ -88,6 +90,7 @@ export default function SwapScreen({
         setBalances(bals);
         setMetadata(meta);
         setSelectedIndex((prev) => Math.min(prev, Math.max(0, bals.length - 1)));
+        setLastUpdated(new Date());
         setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load balances");
@@ -395,9 +398,18 @@ export default function SwapScreen({
 
   // --- Render by step ---
 
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold>Swap</Text>
+      <Box justifyContent="space-between">
+        <Text bold>Swap</Text>
+        {lastUpdated && step === "select-source" && <Text dimColor>updated {timeAgo(lastUpdated)}</Text>}
+      </Box>
 
       {error && (
         <Box marginTop={1}>

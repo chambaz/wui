@@ -4,7 +4,7 @@ import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { fetchRecentActivity } from "../../activity/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { formatTime } from "../../lib/format.js";
+import { formatTime, timeAgo } from "../../lib/format.js";
 import type { ActivityEntry, ActivityType } from "../../types/activity.js";
 
 /** Number of transactions to display. */
@@ -61,6 +61,8 @@ export default function ActivityScreen({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
   const fetchInFlight = useRef(false);
 
   const loadActivity = useCallback(async () => {
@@ -71,6 +73,7 @@ export default function ActivityScreen({
       const result = await fetchRecentActivity(rpc, walletAddress, jupiterApiKey, ACTIVITY_LIMIT);
       setEntries(result);
       setSelectedIndex((prev) => Math.min(prev, Math.max(0, result.length - 1)));
+      setLastUpdated(new Date());
       setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load activity");
@@ -98,6 +101,12 @@ export default function ActivityScreen({
       setShowDetail(false);
     }
   }, [isActive]);
+
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useInput(
     (input, key) => {
@@ -196,7 +205,10 @@ export default function ActivityScreen({
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold>Activity</Text>
+      <Box justifyContent="space-between">
+        <Text bold>Activity</Text>
+        {lastUpdated && <Text dimColor>updated {timeAgo(lastUpdated)}</Text>}
+      </Box>
 
       {/* Table header */}
       <Box marginTop={1}>

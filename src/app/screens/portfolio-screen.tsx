@@ -9,6 +9,7 @@ import {
   formatUsd,
   formatBalance,
   formatPercent,
+  timeAgo,
 } from "../../lib/format.js";
 import type {
   PortfolioRow,
@@ -84,14 +85,6 @@ function computeSummary(rows: PortfolioRow[]): PortfolioSummary {
   };
 }
 
-/** Format relative time since a date. */
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}m ago`;
-}
 
 // --- Column widths ---
 

@@ -7,7 +7,7 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount, parseDecimalAmount } from "../../lib/format.js";
+import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
 
@@ -59,6 +59,8 @@ export default function SendScreen({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loadingBalances, setLoadingBalances] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
   const fetchInFlight = useRef(false);
 
   // Notify parent about text input capture.
@@ -79,6 +81,7 @@ export default function SendScreen({
         setBalances(bals);
         setMetadata(meta);
         setSelectedIndex((prev) => Math.min(prev, Math.max(0, bals.length - 1)));
+        setLastUpdated(new Date());
         setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load balances");
@@ -349,10 +352,19 @@ export default function SendScreen({
     );
   }
 
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // --- Render ---
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold>Transfer</Text>
+      <Box justifyContent="space-between">
+        <Text bold>Transfer</Text>
+        {lastUpdated && step === "select-token" && <Text dimColor>updated {timeAgo(lastUpdated)}</Text>}
+      </Box>
 
       {error && (
         <Box marginTop={1}>
