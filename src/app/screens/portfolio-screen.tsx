@@ -37,25 +37,27 @@ function buildPortfolioRows(
   metadata: Map<string, TokenMetadata>,
   prices: Map<string, TokenPrice>,
 ): PortfolioRow[] {
-  return balances.map((b) => {
-    const meta = metadata.get(b.mint);
-    const price = prices.get(b.mint);
-    const usdPrice = price?.usdPrice ?? null;
-    const usdValue = usdPrice !== null ? b.balance * usdPrice : null;
+  return balances
+    .filter((b) => b.balance > 0)
+    .map((b) => {
+      const meta = metadata.get(b.mint);
+      const price = prices.get(b.mint);
+      const usdPrice = price?.usdPrice ?? null;
+      const usdValue = usdPrice !== null ? b.balance * usdPrice : null;
 
-    return {
-      mint: b.mint,
-      symbol: meta?.symbol ?? truncateAddress(b.mint),
-      name: meta?.name ?? "Unknown",
-      iconUrl: meta?.iconUrl ?? null,
-      balance: b.balance,
-      decimals: b.decimals,
-      isNative: b.isNative,
-      usdPrice,
-      usdValue,
-      priceChange24h: price?.priceChange24h ?? null,
-    };
-  });
+      return {
+        mint: b.mint,
+        symbol: meta?.symbol ?? truncateAddress(b.mint),
+        name: meta?.name ?? "Unknown",
+        iconUrl: meta?.iconUrl ?? null,
+        balance: b.balance,
+        decimals: b.decimals,
+        isNative: b.isNative,
+        usdPrice,
+        usdValue,
+        priceChange24h: price?.priceChange24h ?? null,
+      };
+    });
 }
 
 /** Compute portfolio summary from rows. */
@@ -190,10 +192,10 @@ export default function PortfolioScreen({
 
   // External refresh trigger (e.g. after swap or transfer).
   useEffect(() => {
-    if (refreshKey > 0) {
+    if (isActive && refreshKey > 0) {
       fetchData(false);
     }
-  }, [refreshKey, fetchData]);
+  }, [isActive, refreshKey, fetchData]);
 
   // Auto-refresh timer.
   useEffect(() => {
@@ -216,6 +218,13 @@ export default function PortfolioScreen({
       }
     };
   }, [isActive, fetchData]);
+
+  // Close detail drawer when leaving the screen.
+  useEffect(() => {
+    if (!isActive) {
+      setShowDetail(false);
+    }
+  }, [isActive]);
 
   // Tick the "last updated" display every 10 seconds.
   useEffect(() => {

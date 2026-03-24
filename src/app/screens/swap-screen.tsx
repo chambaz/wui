@@ -30,6 +30,8 @@ interface SwapScreenProps {
   /** Pre-selected mint from portfolio screen. */
   preSelectedMint: string | null;
   onPreSelectedMintConsumed: () => void;
+  /** Increment to trigger a balances refresh from outside the component. */
+  refreshKey: number;
   /** Called when a swap completes successfully. */
   onTransactionComplete: () => void;
 }
@@ -42,6 +44,7 @@ export default function SwapScreen({
   onCapturingInputChange,
   preSelectedMint,
   onPreSelectedMintConsumed,
+  refreshKey,
   onTransactionComplete,
 }: SwapScreenProps) {
   // --- State ---
@@ -112,6 +115,13 @@ export default function SwapScreen({
       onPreSelectedMintConsumed();
     }
   }, [preSelectedMint, balances, step, onPreSelectedMintConsumed]);
+
+  // External refresh trigger (e.g. after a swap, transfer, or stake).
+  useEffect(() => {
+    if (isActive && refreshKey > 0 && step === "select-source") {
+      loadBalances();
+    }
+  }, [isActive, refreshKey, step, loadBalances]);
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -263,6 +273,10 @@ export default function SwapScreen({
 
       // --- Select source token ---
       if (step === "select-source") {
+        if (input === "r") {
+          loadBalances();
+          return;
+        }
         if (key.upArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.max(0, i - 1));
           return;

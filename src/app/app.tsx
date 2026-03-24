@@ -50,8 +50,8 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
   const [swapPreSelectedMint, setSwapPreSelectedMint] = useState<string | null>(null);
   const [sendPreSelectedMint, setSendPreSelectedMint] = useState<string | null>(null);
 
-  // Refresh key — incremented after swaps/transfers to trigger portfolio refresh.
-  const [portfolioRefreshKey, setPortfolioRefreshKey] = useState(0);
+  // Refresh key — incremented after swaps/transfers/staking to trigger data refreshes.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   /** Re-read active wallet from disk after wallet operations. */
   const refreshWallet = useCallback(() => {
@@ -60,7 +60,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
 
   /** Trigger portfolio refresh after a swap or transfer completes. */
   const handleTransactionComplete = useCallback(() => {
-    setPortfolioRefreshKey((k) => k + 1);
+    setRefreshKey((k) => k + 1);
   }, []);
 
   useInput((input) => {
@@ -107,7 +107,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "portfolio"}
             onSelectedMintChange={setPortfolioSelectedMint}
-            refreshKey={portfolioRefreshKey}
+            refreshKey={refreshKey}
           />
         </Box>
         <Box display={screen === "swap" ? "flex" : "none"} flexDirection="column">
@@ -119,6 +119,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             onCapturingInputChange={setSwapCapturingInput}
             preSelectedMint={swapPreSelectedMint}
             onPreSelectedMintConsumed={() => setSwapPreSelectedMint(null)}
+            refreshKey={refreshKey}
             onTransactionComplete={handleTransactionComplete}
           />
         </Box>
@@ -131,6 +132,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             onCapturingInputChange={setSendCapturingInput}
             preSelectedMint={sendPreSelectedMint}
             onPreSelectedMintConsumed={() => setSendPreSelectedMint(null)}
+            refreshKey={refreshKey}
             onTransactionComplete={handleTransactionComplete}
           />
         </Box>
@@ -140,6 +142,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             rpc={rpc}
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "activity"}
+            refreshKey={refreshKey}
           />
         </Box>
         <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
@@ -153,6 +156,7 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
           <StakingScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}
+            jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "staking"}
             onCapturingInputChange={setStakingCapturingInput}
             onTransactionComplete={handleTransactionComplete}

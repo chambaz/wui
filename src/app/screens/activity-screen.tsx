@@ -15,6 +15,7 @@ interface ActivityScreenProps {
   rpc: Rpc<SolanaRpcApi>;
   jupiterApiKey: string;
   isActive: boolean;
+  refreshKey: number;
 }
 
 /** Column widths for table layout. */
@@ -52,6 +53,7 @@ export default function ActivityScreen({
   rpc,
   jupiterApiKey,
   isActive,
+  refreshKey,
 }: ActivityScreenProps) {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,20 @@ export default function ActivityScreen({
   useEffect(() => {
     loadActivity();
   }, [loadActivity]);
+
+  // External refresh trigger (e.g. after swap, transfer, or stake).
+  useEffect(() => {
+    if (isActive && refreshKey > 0) {
+      loadActivity();
+    }
+  }, [isActive, refreshKey, loadActivity]);
+
+  // Close detail drawer when leaving the screen.
+  useEffect(() => {
+    if (!isActive) {
+      setShowDetail(false);
+    }
+  }, [isActive]);
 
   useInput(
     (input, key) => {

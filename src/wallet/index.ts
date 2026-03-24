@@ -68,15 +68,35 @@ async function signerFromKeypairFile(path: string): Promise<KeyPairSigner> {
 }
 
 /**
- * Validate a label for use as a wallet name and filename.
- * Only allows alphanumeric characters, hyphens, and underscores.
+ * Validate a user-facing wallet label.
+ * Allows spaces, but rejects empty labels and path-like characters.
  */
 function validateLabel(label: string): void {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(label)) {
+  const trimmed = label.trim();
+  if (!trimmed) {
+    throw new Error("Label cannot be empty.");
+  }
+  if (trimmed.length > 40) {
+    throw new Error("Label must be 40 characters or fewer.");
+  }
+  if (/[\\/]/.test(trimmed)) {
     throw new Error(
-      "Label must start with a letter or number and contain only letters, numbers, hyphens, and underscores."
+      "Label cannot contain slashes."
     );
   }
+}
+
+/** Convert a wallet label into a filesystem-safe filename. */
+function labelToFilename(label: string): string {
+  const normalized = label
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return normalized || "wallet";
 }
 
 // --- Public API ---
@@ -99,6 +119,8 @@ export async function importWallet(
   keypairPath: string,
   label: string
 ): Promise<WalletEntry> {
+  const normalizedLabel = label.trim();
+
   // Expand ~ to home directory.
   const expandedPath = keypairPath.startsWith("~/")
     ? join(homedir(), keypairPath.slice(2))
@@ -109,7 +131,7 @@ export async function importWallet(
     throw new Error(`Keypair file not found: ${absolutePath}`);
   }
 
-  validateLabel(label);
+  validateLabel(normalizedLabel);
   const signer = await signerFromKeypairFile(absolutePath);
   const store = readStore();
 
@@ -117,12 +139,12 @@ export async function importWallet(
     throw new Error(`Wallet already imported: ${signer.address}`);
   }
 
-  if (store.wallets.some((w) => w.label === label)) {
-    throw new Error(`Label already in use: ${label}`);
+  if (store.wallets.some((w) => w.label === normalizedLabel)) {
+    throw new Error(`Label already in use: ${normalizedLabel}`);
   }
 
   const entry: WalletEntry = {
-    label,
+    label: normalizedLabel,
     publicKey: signer.address,
     keypairPath: absolutePath,
     isActive: store.wallets.length === 0,
@@ -134,14 +156,15 @@ export async function importWallet(
 }
 
 export async function createWallet(label: string): Promise<WalletEntry> {
-  validateLabel(label);
+  const normalizedLabel = label.trim();
+  validateLabel(normalizedLabel);
   const store = readStore();
 
-  if (store.wallets.some((w) => w.label === label)) {
-    throw new Error(`Label already in use: ${label}`);
+  if (store.wallets.some((w) => w.label === normalizedLabel)) {
+    throw new Error(`Label already in use: ${normalizedLabel}`);
   }
 
-  const keypairPath = join(KEYS_DIR, `${label}.json`);
+  const keypairPath = join(KEYS_DIR, `${labelToFilename(normalizedLabel)}.json`);
 
   let signer: KeyPairSigner;
 
@@ -168,7 +191,7 @@ export async function createWallet(label: string): Promise<WalletEntry> {
   }
 
   const entry: WalletEntry = {
-    label,
+    label: normalizedLabel,
     publicKey: signer.address,
     keypairPath,
     isActive: store.wallets.length === 0,
@@ -203,7 +226,8 @@ export function labelWallet(
   currentLabel: string,
   newLabel: string
 ): WalletEntry {
-  validateLabel(newLabel);
+  const normalizedLabel = newLabel.trim();
+  validateLabel(normalizedLabel);
   const store = readStore();
   const wallet = store.wallets.find((w) => w.label === currentLabel);
 
@@ -211,11 +235,11 @@ export function labelWallet(
     throw new Error(`Wallet not found: ${currentLabel}`);
   }
 
-  if (store.wallets.some((w) => w.label === newLabel)) {
-    throw new Error(`Label already in use: ${newLabel}`);
+  if (store.wallets.some((w) => w.label === normalizedLabel)) {
+    throw new Error(`Label already in use: ${normalizedLabel}`);
   }
 
-  wallet.label = newLabel;
+  wallet.label = normalizedLabel;
   writeStore(store);
   return wallet;
 }

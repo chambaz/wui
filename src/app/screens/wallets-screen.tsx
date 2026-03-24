@@ -220,7 +220,7 @@ export default function WalletsScreen({
         .catch((err: unknown) => {
           if (!operationInFlight.current) return;
           showMessage(err instanceof Error ? err.message : "Failed to import", "red");
-          resetToList();
+          operationInFlight.current = false;
         })
         .finally(() => { operationInFlight.current = false; });
       return;
@@ -238,8 +238,6 @@ export default function WalletsScreen({
       resetToList();
     }
   }
-
-  // --- Render ---
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>

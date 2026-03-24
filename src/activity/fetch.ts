@@ -8,10 +8,6 @@ import type { SignatureEntry, ParsedTransaction } from "./types.js";
 const FETCH_MULTIPLIER = 5;
 const MAX_SIGNATURE_PAGES = 5;
 
-function walletIsSigner(tx: ParsedTransaction, walletAddress: string): boolean {
-  return tx.transaction.message.accountKeys.some((k) => k.pubkey === walletAddress && k.signer);
-}
-
 export async function fetchRecentActivity(
   rpc: Rpc<SolanaRpcApi>,
   walletAddress: string,
@@ -19,10 +15,12 @@ export async function fetchRecentActivity(
   limit = 5,
 ): Promise<ActivityEntry[]> {
   const BATCH_SIZE = 10;
-  const signerTxs: Array<{ sig: SignatureEntry; tx: ParsedTransaction }> = [];
+  const matchingTxs: Array<{ sig: SignatureEntry; tx: ParsedTransaction }> = [];
   let before: string | undefined;
+  let transactionFetchError: string | null = null;
+  let sawSignature = false;
 
-  for (let page = 0; page < MAX_SIGNATURE_PAGES && signerTxs.length < limit; page += 1) {
+  for (let page = 0; page < MAX_SIGNATURE_PAGES && matchingTxs.length < limit; page += 1) {
     const signatures = await rpc
       .getSignaturesForAddress(address(walletAddress), {
         limit: limit * FETCH_MULTIPLIER,
@@ -31,6 +29,7 @@ export async function fetchRecentActivity(
       .send();
 
     if (signatures.length === 0) break;
+    sawSignature = true;
 
     const sigEntries = signatures as readonly SignatureEntry[];
     const txResults: Array<{ sig: SignatureEntry; tx: ParsedTransaction | null }> = [];
@@ -47,7 +46,10 @@ export async function fetchRecentActivity(
               })
               .send();
             return { sig, tx: tx as ParsedTransaction | null };
-          } catch {
+          } catch (err: unknown) {
+            if (!transactionFetchError) {
+              transactionFetchError = err instanceof Error ? err.message : String(err);
+            }
             return { sig, tx: null };
           }
         }),
@@ -56,17 +58,23 @@ export async function fetchRecentActivity(
     }
 
     for (const result of txResults) {
-      if (result.tx && walletIsSigner(result.tx, walletAddress)) {
-        signerTxs.push({ sig: result.sig, tx: result.tx });
-        if (signerTxs.length >= limit) break;
+      if (result.tx) {
+        matchingTxs.push({ sig: result.sig, tx: result.tx });
+        if (matchingTxs.length >= limit) break;
       }
     }
 
     before = sigEntries[sigEntries.length - 1]?.signature;
   }
 
+  if (matchingTxs.length === 0 && sawSignature && transactionFetchError) {
+    throw new Error(
+      `Could not load transaction details from your RPC. ${transactionFetchError}`,
+    );
+  }
+
   const allMints = new Set<string>();
-  for (const { tx } of signerTxs) {
+  for (const { tx } of matchingTxs) {
     if (!tx?.meta) continue;
     for (const b of [...tx.meta.preTokenBalances, ...tx.meta.postTokenBalances]) {
       if (b.mint !== NATIVE_SOL_MINT) allMints.add(b.mint);
@@ -79,7 +87,7 @@ export async function fetchRecentActivity(
   }
 
   const entries: ActivityEntry[] = [];
-  for (const { sig, tx } of signerTxs) {
+  for (const { sig, tx } of matchingTxs) {
     if (!tx) continue;
     const { type, summary } = classifyTransaction(tx, walletAddress);
     entries.push({

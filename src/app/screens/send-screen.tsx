@@ -30,6 +30,8 @@ interface SendScreenProps {
   /** Pre-selected mint from portfolio screen. */
   preSelectedMint: string | null;
   onPreSelectedMintConsumed: () => void;
+  /** Increment to trigger a balances refresh from outside the component. */
+  refreshKey: number;
   /** Called when a transfer completes successfully. */
   onTransactionComplete: () => void;
 }
@@ -42,6 +44,7 @@ export default function SendScreen({
   onCapturingInputChange,
   preSelectedMint,
   onPreSelectedMintConsumed,
+  refreshKey,
   onTransactionComplete,
 }: SendScreenProps) {
   const [step, setStep] = useState<SendStep>("select-token");
@@ -104,6 +107,13 @@ export default function SendScreen({
       onPreSelectedMintConsumed();
     }
   }, [preSelectedMint, balances, step, onPreSelectedMintConsumed]);
+
+  // External refresh trigger (e.g. after a swap, transfer, or stake).
+  useEffect(() => {
+    if (isActive && refreshKey > 0 && step === "select-token") {
+      loadBalances();
+    }
+  }, [isActive, refreshKey, step, loadBalances]);
 
   /** Get symbol for a mint. */
   function mintSymbol(mint: string): string {
@@ -228,6 +238,10 @@ export default function SendScreen({
 
       // --- Select token ---
       if (step === "select-token") {
+        if (input === "r") {
+          loadBalances();
+          return;
+        }
         if (key.upArrow && balances.length > 0) {
           setSelectedIndex((i) => Math.max(0, i - 1));
           return;
