@@ -1,5 +1,5 @@
 {
-  "name": "wui",
+  "name": "walletui",
   "version": "0.1.0",
   "description": "A terminal-native Solana wallet for developers and power users",
   "type": "module",
@@ -23,6 +23,7 @@
     "cli"
   ],
   "license": "MIT",
+  "author": "Adam Chambers <adammchambers@gmail.com>",
   "dependencies": {
     "@solana-program/stake": "^0.6.0",
     "@solana-program/system": "^0.12.0",

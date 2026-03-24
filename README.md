@@ -5,13 +5,19 @@ A Solana wallet for the terminal.
 ## Install
 
 ```bash
-npm install -g wui
+npm install -g walletui
 ```
 
 Or run directly:
 
 ```bash
-npx wui
+npx walletui
+```
+
+After installing, run the CLI with:
+
+```bash
+wui
 ```
 
 ## Setup
