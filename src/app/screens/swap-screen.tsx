@@ -5,7 +5,7 @@ import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
-import { getSwapQuote, executeSwap, DEFAULT_SLIPPAGE_BPS } from "../../swap/index.js";
+import { getSwapQuote, executeSwap } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
@@ -183,7 +183,6 @@ export default function SwapScreen({
           inputMint: sourceToken.mint,
           outputMint: destMint,
           amount: String(amountNum),
-          slippageBps: DEFAULT_SLIPPAGE_BPS,
         },
         jupiterApiKey,
       );
@@ -421,11 +420,6 @@ export default function SwapScreen({
       {step === "select-source" && (
         <Box flexDirection="column" marginTop={1}>
           <Text dimColor>Select token to swap from:</Text>
-          {loadingBalances && (
-            <Box marginTop={1}>
-              <Text dimColor>Loading balances...</Text>
-            </Box>
-          )}
           {!loadingBalances && balances.length === 0 && !error && (
             <Box marginTop={1}>
               <Text dimColor>No tokens found.</Text>

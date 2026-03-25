@@ -376,9 +376,6 @@ export default function SendScreen({
       {step === "select-token" && (
         <Box flexDirection="column" marginTop={1}>
           <Text dimColor>Select token to transfer:</Text>
-          {loadingBalances && (
-            <Box marginTop={1}><Text dimColor>Loading balances...</Text></Box>
-          )}
           {!loadingBalances && balances.length === 0 && !error && (
             <Box marginTop={1}><Text dimColor>No tokens found.</Text></Box>
           )}
