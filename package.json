@@ -1,6 +1,6 @@
 {
   "name": "@chambaz/walletui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A terminal-native Solana wallet for developers and power users",
   "type": "module",
   "bin": {

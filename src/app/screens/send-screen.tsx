@@ -340,6 +340,12 @@ export default function SendScreen({
     { isActive },
   );
 
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // --- No wallet ---
   if (!walletAddress) {
     return (
@@ -351,12 +357,6 @@ export default function SendScreen({
       </Box>
     );
   }
-
-  // Tick every 10s so the "updated X ago" label stays fresh.
-  useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
-    return () => clearInterval(timer);
-  }, []);
 
   // --- Render ---
   return (

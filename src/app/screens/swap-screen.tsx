@@ -383,6 +383,12 @@ export default function SwapScreen({
     { isActive },
   );
 
+  // Tick every 10s so the "updated X ago" label stays fresh.
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // --- No wallet ---
 
   if (!walletAddress) {
@@ -397,12 +403,6 @@ export default function SwapScreen({
   }
 
   // --- Render by step ---
-
-  // Tick every 10s so the "updated X ago" label stays fresh.
-  useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>

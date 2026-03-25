@@ -690,6 +690,7 @@ export default function StakingScreen({
     newValidatorVote,
     optionIndex,
     resetFlow,
+    resultSignature,
     savePoolAndContinue,
     selectedItem,
     showDetail,

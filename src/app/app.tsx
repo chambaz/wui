@@ -16,7 +16,7 @@ import WalletsScreen from "./screens/wallets-screen.js";
 import StakingScreen from "./screens/staking-screen.js";
 
 /** App version. */
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 
 interface AppProps {
   wallet: WalletEntry | null;
