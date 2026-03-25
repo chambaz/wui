@@ -98,9 +98,9 @@
         <h1>wui</h1>
         <p class="tagline">a Solana wallet for your terminal</p>
 
-        <div class="install" data-copy-value="npx @chambaz/walletui">
+        <div class="install" data-copy-value="npm install -g @chambaz/walletui">
           <span class="prompt">$</span>
-          <code>npx @chambaz/walletui</code>
+          <code>npm install -g @chambaz/walletui</code>
           <button
             class="copy-btn"
             type="button"
@@ -146,28 +146,93 @@
     <!-- Demo -->
     <section>
       <div class="container">
-        <div class="demo-shell demo-shell-disabled" data-demo-enabled="false">
+        <div class="demo-shell">
           <div class="demo-tabs" role="tablist" aria-label="wui demo clips">
-            <button class="demo-tab is-active" type="button" data-video-tab="0" aria-pressed="true">Portfolio</button>
-            <button class="demo-tab" type="button" data-video-tab="1" aria-pressed="false">Swap</button>
-            <button class="demo-tab" type="button" data-video-tab="2" aria-pressed="false">Transfer</button>
-            <button class="demo-tab" type="button" data-video-tab="3" aria-pressed="false">Stake</button>
+            <button
+              class="demo-tab is-active"
+              type="button"
+              data-video-tab="0"
+              aria-pressed="true"
+            >
+              Portfolio
+            </button>
+            <button
+              class="demo-tab"
+              type="button"
+              data-video-tab="1"
+              aria-pressed="false"
+            >
+              Swap
+            </button>
+            <button
+              class="demo-tab"
+              type="button"
+              data-video-tab="2"
+              aria-pressed="false"
+            >
+              Transfer
+            </button>
+            <button
+              class="demo-tab"
+              type="button"
+              data-video-tab="3"
+              aria-pressed="false"
+            >
+              Stake
+            </button>
           </div>
-          <div class="demo-placeholder">
-            <span class="demo-placeholder-label">Videos coming soon</span>
-          </div>
-          <div class="demo-stage" aria-hidden="true">
-            <video class="demo-video is-active" data-video-panel="0" muted playsinline preload="metadata" aria-label="Portfolio demo">
-              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4" type="video/mp4" />
+          <div class="demo-stage">
+            <video
+              class="demo-video is-active"
+              data-video-panel="0"
+              muted
+              playsinline
+              preload="metadata"
+              aria-label="Portfolio demo"
+            >
+              <source
+                src="https://dxmeibynzpdrzijwnafa.supabase.co/storage/v1/object/public/wui/demo-portfolio.mp4"
+                type="video/mp4"
+              />
             </video>
-            <video class="demo-video" data-video-panel="1" muted playsinline preload="metadata" aria-label="Swap demo">
-              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-2.mp4" type="video/mp4" />
+            <video
+              class="demo-video"
+              data-video-panel="1"
+              muted
+              playsinline
+              preload="metadata"
+              aria-label="Swap demo"
+            >
+              <source
+                src="https://dxmeibynzpdrzijwnafa.supabase.co/storage/v1/object/public/wui/demo-swap.mp4"
+                type="video/mp4"
+              />
             </video>
-            <video class="demo-video" data-video-panel="2" muted playsinline preload="metadata" aria-label="Transfer demo">
-              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-3.mp4" type="video/mp4" />
+            <video
+              class="demo-video"
+              data-video-panel="2"
+              muted
+              playsinline
+              preload="metadata"
+              aria-label="Transfer demo"
+            >
+              <source
+                src="https://dxmeibynzpdrzijwnafa.supabase.co/storage/v1/object/public/wui/demo-transfer.mp4"
+                type="video/mp4"
+              />
             </video>
-            <video class="demo-video" data-video-panel="3" muted playsinline preload="metadata" aria-label="Stake demo">
-              <source src="https://xcdlwgvabmruuularsvn.supabase.co/storage/v1/object/public/agent-videos/agents-1.mp4" type="video/mp4" />
+            <video
+              class="demo-video"
+              data-video-panel="3"
+              muted
+              playsinline
+              preload="metadata"
+              aria-label="Stake demo"
+            >
+              <source
+                src="https://dxmeibynzpdrzijwnafa.supabase.co/storage/v1/object/public/wui/demo-stake.mp4"
+                type="video/mp4"
+              />
             </video>
           </div>
         </div>
@@ -222,7 +287,7 @@
             <div class="feature-label">Swap</div>
             <p>
               Swap any token instantly via Jupiter with real-time quotes and
-              slippage control.
+              price impact previews.
             </p>
           </div>
           <div class="feature">
@@ -267,10 +332,7 @@
             </svg>
 
             <div class="feature-label">Staking</div>
-            <p>
-              Stake SOL with top validators and liquid staking protocols
-              directly from the terminal.
-            </p>
+            <p>Stake SOL with top validators and liquid staking protocols.</p>
           </div>
         </div>
       </div>

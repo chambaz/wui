@@ -20,7 +20,7 @@ if (copyButton && installBlock) {
   });
 }
 
-const DEMO_ENABLED = false;
+const DEMO_ENABLED = true;
 
 const tabs = Array.from(document.querySelectorAll("[data-video-tab]"));
 const videos = Array.from(document.querySelectorAll("[data-video-panel]"));
@@ -43,17 +43,6 @@ function setVideoState(index) {
   });
 }
 
-async function playVideo(index) {
-  const video = videos[index];
-  if (!video) return;
-
-  try {
-    await video.play();
-  } catch {
-    // Some browsers block autoplay until interaction.
-  }
-}
-
 async function switchTo(index) {
   if (index === activeIndex) return;
 
@@ -68,11 +57,14 @@ async function switchTo(index) {
   setVideoState(index);
 
   const incoming = videos[index];
-  if (incoming) {
-    incoming.currentTime = 0;
-  }
+  if (!incoming) return;
+  incoming.currentTime = 0;
 
-  await playVideo(index);
+  try {
+    await incoming.play();
+  } catch {
+    // Some browsers block autoplay until interaction.
+  }
 }
 
 if (DEMO_ENABLED) {
@@ -90,5 +82,9 @@ if (DEMO_ENABLED) {
 
   setTabState(activeIndex);
   setVideoState(activeIndex);
-  void playVideo(activeIndex);
+
+  const first = videos[activeIndex];
+  if (first) {
+    first.play().catch(() => {});
+  }
 }
