@@ -1,5 +1,6 @@
-export const DEFAULT_SLIPPAGE_BPS = 50;
 export const PLATFORM_FEE_BPS = 30;
+/** Default max slippage percentage shown in the swap UI. */
+export const DEFAULT_SLIPPAGE_PCT = "0.50";
 export const FEE_WALLET_ADDRESS = "3TZ4bdHjJaxempMDU9n7itvCEsFVYg5TyzjNWnvT5i6X";
 export const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 export const ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";

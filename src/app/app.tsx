@@ -16,7 +16,7 @@ import WalletsScreen from "./screens/wallets-screen.js";
 import StakingScreen from "./screens/staking-screen.js";
 
 /** App version. */
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 
 interface AppProps {
   wallet: WalletEntry | null;
@@ -34,7 +34,12 @@ const SCREEN_KEYS: Record<string, Screen> = {
   k: "staking",
 };
 
-export default function App({ wallet: initialWallet, rpcConnected, rpc, config }: AppProps) {
+export default function App({
+  wallet: initialWallet,
+  rpcConnected,
+  rpc,
+  config,
+}: AppProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>("portfolio");
   const [wallet, setWallet] = useState<WalletEntry | null>(initialWallet);
@@ -44,11 +49,17 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
   const [stakingCapturingInput, setStakingCapturingInput] = useState(false);
 
   // Currently selected mint in portfolio screen (for cross-screen shortcuts).
-  const [portfolioSelectedMint, setPortfolioSelectedMint] = useState<string | null>(null);
+  const [portfolioSelectedMint, setPortfolioSelectedMint] = useState<
+    string | null
+  >(null);
 
   // Pre-selected mint passed to swap/send screens when navigating from portfolio.
-  const [swapPreSelectedMint, setSwapPreSelectedMint] = useState<string | null>(null);
-  const [sendPreSelectedMint, setSendPreSelectedMint] = useState<string | null>(null);
+  const [swapPreSelectedMint, setSwapPreSelectedMint] = useState<string | null>(
+    null,
+  );
+  const [sendPreSelectedMint, setSendPreSelectedMint] = useState<string | null>(
+    null,
+  );
 
   // Refresh key — incremented after swaps/transfers/staking to trigger data refreshes.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -65,7 +76,13 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
 
   useInput((input) => {
     // When a screen is capturing text input, don't process single-key shortcuts.
-    if (swapCapturingInput || sendCapturingInput || walletsCapturingInput || stakingCapturingInput) return;
+    if (
+      swapCapturingInput ||
+      sendCapturingInput ||
+      walletsCapturingInput ||
+      stakingCapturingInput
+    )
+      return;
 
     if (input === "q") {
       exit();
@@ -99,8 +116,16 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
         publicKey={wallet?.publicKey ?? null}
         rpcConnected={rpcConnected}
       />
-      <Box borderStyle="single" borderTop={false} flexDirection="column" minHeight={10}>
-        <Box display={screen === "portfolio" ? "flex" : "none"} flexDirection="column">
+      <Box
+        borderStyle="single"
+        borderTop={false}
+        flexDirection="column"
+        minHeight={10}
+      >
+        <Box
+          display={screen === "portfolio" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <PortfolioScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}
@@ -110,7 +135,10 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             refreshKey={refreshKey}
           />
         </Box>
-        <Box display={screen === "swap" ? "flex" : "none"} flexDirection="column">
+        <Box
+          display={screen === "swap" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <SwapScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}
@@ -123,7 +151,10 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             onTransactionComplete={handleTransactionComplete}
           />
         </Box>
-        <Box display={screen === "send" ? "flex" : "none"} flexDirection="column">
+        <Box
+          display={screen === "send" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <SendScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}
@@ -136,7 +167,10 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             onTransactionComplete={handleTransactionComplete}
           />
         </Box>
-        <Box display={screen === "activity" ? "flex" : "none"} flexDirection="column">
+        <Box
+          display={screen === "activity" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <ActivityScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}
@@ -145,14 +179,20 @@ export default function App({ wallet: initialWallet, rpcConnected, rpc, config }
             refreshKey={refreshKey}
           />
         </Box>
-        <Box display={screen === "wallets" ? "flex" : "none"} flexDirection="column">
+        <Box
+          display={screen === "wallets" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <WalletsScreen
             isActive={screen === "wallets"}
             onWalletChange={refreshWallet}
             onCapturingInputChange={setWalletsCapturingInput}
           />
         </Box>
-        <Box display={screen === "staking" ? "flex" : "none"} flexDirection="column">
+        <Box
+          display={screen === "staking" ? "flex" : "none"}
+          flexDirection="column"
+        >
           <StakingScreen
             walletAddress={wallet?.publicKey ?? null}
             rpc={rpc}

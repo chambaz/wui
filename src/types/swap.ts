@@ -4,7 +4,7 @@ export interface SwapQuoteRequest {
   outputMint: string;
   /** Raw amount in smallest units (lamports / atomic units). */
   amount: string;
-  /** Slippage tolerance in basis points (e.g. 50 = 0.5%). */
+  /** Max slippage tolerance in basis points (e.g. 50 = 0.5%). */
   slippageBps: number;
 }
 

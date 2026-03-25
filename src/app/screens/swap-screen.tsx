@@ -5,7 +5,7 @@ import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { getActiveWalletSigner } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
-import { getSwapQuote, executeSwap } from "../../swap/index.js";
+import { DEFAULT_SLIPPAGE_PCT, getSwapQuote, executeSwap } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
 import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
@@ -17,6 +17,7 @@ type SwapStep =
   | "select-source"
   | "select-dest"
   | "enter-amount"
+  | "enter-slippage"
   | "preview"
   | "executing"
   | "result";
@@ -59,6 +60,7 @@ export default function SwapScreen({
   const [destResults, setDestResults] = useState<TokenMetadata[]>([]);
   const [destSearchIndex, setDestSearchIndex] = useState(0);
   const [amountInput, setAmountInput] = useState("");
+  const [slippageInput, setSlippageInput] = useState(DEFAULT_SLIPPAGE_PCT);
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [swapStatus, setSwapStatus] = useState("Preparing...");
   const [swapResult, setSwapResult] = useState<SwapResult | null>(null);
@@ -72,7 +74,7 @@ export default function SwapScreen({
   const fetchInFlight = useRef(false);
 
   // Notify parent when text input capture state changes.
-  const isCapturing = step === "select-dest" || step === "enter-amount";
+  const isCapturing = step === "select-dest" || step === "enter-amount" || step === "enter-slippage";
   useEffect(() => {
     onCapturingInputChange(isCapturing);
   }, [isCapturing, onCapturingInputChange]);
@@ -178,11 +180,16 @@ export default function SwapScreen({
         }
       }
 
+      // Multiply by 10 twice to avoid IEEE 754 floating-point errors (e.g. 0.1 * 100 = 10.000...02).
+      const slippagePct = parseFloat(slippageInput || DEFAULT_SLIPPAGE_PCT);
+      const slippageBps = Math.round(slippagePct * 10) * 10;
+
       const q = await getSwapQuote(
         {
           inputMint: sourceToken.mint,
           outputMint: destMint,
           amount: String(amountNum),
+          slippageBps,
         },
         jupiterApiKey,
       );
@@ -193,7 +200,7 @@ export default function SwapScreen({
     } finally {
       setLoadingQuote(false);
     }
-  }, [sourceToken, destMint, amountInput, jupiterApiKey]);
+  }, [sourceToken, destMint, amountInput, slippageInput, jupiterApiKey]);
 
   const doSwap = useCallback(async () => {
     if (!quote) return;
@@ -234,6 +241,7 @@ export default function SwapScreen({
     setDestResults([]);
     setDestSearchIndex(0);
     setAmountInput("");
+    setSlippageInput(DEFAULT_SLIPPAGE_PCT);
     setQuote(null);
     setSwapResult(null);
     setError(null);
@@ -258,8 +266,12 @@ export default function SwapScreen({
         if (step === "result") {
           resetSwap();
         } else if (step === "preview") {
-          setStep("enter-amount");
+          setStep("enter-slippage");
           setQuote(null);
+          // Preserve the user's slippage value — do not reset here.
+        } else if (step === "enter-slippage") {
+          setStep("enter-amount");
+          setSlippageInput(DEFAULT_SLIPPAGE_PCT);
         } else if (step === "enter-amount") {
           setStep("select-dest");
           setAmountInput("");
@@ -333,7 +345,7 @@ export default function SwapScreen({
       // --- Enter amount ---
       if (step === "enter-amount") {
         if (key.return && amountInput.length > 0) {
-          fetchQuote();
+          setStep("enter-slippage");
           return;
         }
         if (key.backspace || key.delete) {
@@ -348,6 +360,32 @@ export default function SwapScreen({
             setAmountInput("ma");
           } else if (input === "x" && amountInput === "ma") {
             setAmountInput("max");
+          }
+          return;
+        }
+        return;
+      }
+
+      // --- Enter max slippage ---
+      if (step === "enter-slippage") {
+        if (key.return) {
+          const val = parseFloat(slippageInput);
+          if (isNaN(val) || val < 0.01 || val > 50) {
+            setError("Enter a slippage between 0.01% and 50%.");
+            return;
+          }
+          setError(null);
+          fetchQuote();
+          return;
+        }
+        if (key.backspace || key.delete) {
+          setSlippageInput((v) => v.slice(0, -1));
+          setError(null);
+          return;
+        }
+        if (input && !key.ctrl && !key.meta && input.length === 1) {
+          if (/\d/.test(input) || (input === "." && !slippageInput.includes("."))) {
+            setSlippageInput((v) => v + input);
           }
           return;
         }
@@ -516,13 +554,39 @@ export default function SwapScreen({
             <Text>{amountInput || " "}</Text>
             <Text dimColor>_</Text>
           </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[type] amount or &quot;max&quot;  [enter] next  [esc] back</Text>
+          </Box>
+        </Box>
+      )}
+
+      {/* Step: Enter max slippage */}
+      {step === "enter-slippage" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>From: </Text>
+            <Text color="cyan">
+              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
+            </Text>
+          </Box>
+          <Box>
+            <Text dimColor>To: </Text>
+            <Text color="cyan">
+              {destToken?.symbol ?? truncateAddress(destMint)}
+            </Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>Max slippage (%): </Text>
+            <Text>{slippageInput}</Text>
+            <Text dimColor>_</Text>
+          </Box>
           {loadingQuote && (
             <Box marginTop={1}>
               <Text dimColor>Fetching quote...</Text>
             </Box>
           )}
           <Box marginTop={1}>
-            <Text dimColor>[type] amount or &quot;max&quot;  [enter] get quote  [esc] back</Text>
+            <Text dimColor>[enter] get quote  [esc] back</Text>
           </Box>
         </Box>
       )}
@@ -553,7 +617,7 @@ export default function SwapScreen({
               </Text>
             </Box>
             <Box>
-              <Text dimColor>{"Slippage:  "}</Text>
+              <Text dimColor>{"Max slip:  "}</Text>
               <Text>{(quote.slippageBps / 100).toFixed(2)}%</Text>
             </Box>
             <Box>
