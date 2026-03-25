@@ -4,17 +4,13 @@ A Solana wallet for the terminal.
 
 ## Install
 
+Install globally to get the `wui` command:
+
 ```bash
 npm install -g @chambaz/walletui
 ```
 
-Or run directly:
-
-```bash
-npx @chambaz/walletui
-```
-
-After installing, run the CLI with:
+Then run from anywhere:
 
 ```bash
 wui
@@ -31,12 +27,6 @@ Config is saved to `~/.wui/.env`. Re-run setup anytime with `wui config`.
 
 ## Usage
 
-Launch the interactive TUI:
-
-```bash
-wui
-```
-
 ### Keyboard shortcuts
 
 | Key | Action                 |
@@ -46,6 +36,7 @@ wui
 | `t` | Transfer screen        |
 | `a` | Activity screen        |
 | `w` | Wallets screen         |
+| `k` | Staking screen         |
 | `r` | Refresh current screen |
 | `q` | Quit                   |
 
@@ -58,7 +49,7 @@ wui portfolio            # Print portfolio table
 wui portfolio --json     # JSON output
 wui activity             # Print recent transactions
 wui activity --json      # JSON output
-wui send <addr> <amt> <token>   # Send tokens
+wui send <addr> <amt> <symbol>  # Send tokens (e.g. SOL, USDC)
 wui config               # Re-run setup
 wui --help               # Usage info
 ```
