@@ -191,8 +191,8 @@ src/
 User data is stored at `~/.wui/` (migrated automatically from `~/.walletui/` if present):
 
 - `.env` — configuration (RPC URL + Jupiter API key), mode `0o600`
-- `wallets.json` — wallet registry (labels, public keys, paths — NO secrets), mode `0o600`
-- `keys/` — generated keypair files (Solana CLI format: 64-byte JSON array), mode `0o600`
+- `wallets.json` — wallet registry (labels, public keys, encrypted key file paths — NO secrets), mode `0o600`
+- `keys/` — encrypted wallet vault files owned by `wui`, mode `0o600`
 
 ## Keyboard Shortcuts
 
@@ -221,6 +221,8 @@ User data is stored at `~/.wui/` (migrated automatically from `~/.walletui/` if 
 | Activity | `enter` | Toggle detail drawer |
 | Activity | `y` | Copy tx signature (detail open) |
 | Wallets | `enter` | Switch wallet |
+| Wallets | `u` | Unlock wallet |
+| Wallets | `x` | Lock wallet |
 | Wallets | `y` | Copy public key |
 | Wallets | `c` | Create wallet |
 | Wallets | `i` | Import wallet |
@@ -246,5 +248,5 @@ wui --help             # Usage info
 - Signing always happens locally.
 - All sensitive files written with mode `0o600` (owner read/write only).
 - `.env` is gitignored — never commit it.
-- `wallets.json` stores only public keys and file paths, never key material.
+- `wallets.json` stores only public keys and encrypted key file paths, never key material.
 - All outbound network calls go to only two destinations: the configured Solana RPC and Jupiter APIs (`api.jup.ag`).

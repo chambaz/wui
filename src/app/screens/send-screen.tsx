@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
-import { getActiveWalletSigner } from "../../wallet/index.js";
+import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
@@ -184,6 +184,11 @@ export default function SendScreen({
       setStep("result");
       if (result.success) onTransactionComplete();
     } catch (err: unknown) {
+      const message = err instanceof WalletLockedError
+        ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+        : err instanceof Error
+          ? err.message
+          : "Unknown error";
       setSendResult({
         success: false,
         signature: null,
@@ -191,7 +196,7 @@ export default function SendScreen({
         recipient: recipientInput,
         amount: 0n,
         decimals: sourceToken.decimals,
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: message,
       });
       setStep("result");
     } finally {

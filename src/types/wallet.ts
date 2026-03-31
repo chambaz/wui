@@ -1,8 +1,10 @@
 export interface WalletEntry {
+  id: string;
   label: string;
   publicKey: string;
-  keypairPath: string;
+  keyfilePath: string;
   isActive: boolean;
+  storageType: "encrypted";
 }
 
 export interface WalletStore {

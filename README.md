@@ -58,10 +58,12 @@ wui --help               # Usage info
 
 wui can create new wallets or import existing Solana CLI keypair files. Wallet data is stored at `~/.wui/`:
 
-- `wallets.json` — wallet registry (labels, public keys, paths — no secrets)
-- `keys/` — generated keypair files (Solana CLI format)
+- `wallets.json` — wallet registry (labels, public keys, encrypted key file paths — no secrets)
+- `keys/` — encrypted wallet vault files owned by `wui`
 
-Private keys never leave your machine.
+Imported Solana CLI keypair files are copied into `~/.wui/keys/`, encrypted, and then managed by `wui`.
+
+Private keys never leave your machine and are not stored in plaintext by `wui`.
 
 ## Requirements
 
