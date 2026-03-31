@@ -63,6 +63,8 @@ wui can create new wallets or import existing Solana CLI keypair files. Wallet d
 
 Imported Solana CLI keypair files are copied into `~/.wui/keys/`, encrypted, and then managed by `wui`.
 
+On first launch after upgrading from the older plaintext wallet format, `wui` will guide you through a one-time in-app migration.
+
 Private keys never leave your machine and are not stored in plaintext by `wui`.
 
 ## Requirements
