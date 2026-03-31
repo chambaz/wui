@@ -2,7 +2,14 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
-import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
+import UnlockPrompt from "../../components/unlock-prompt.js";
+import {
+  getActiveWalletEntry,
+  getActiveWalletSigner,
+  unlockWallet,
+  WalletLockedError,
+  WalletPassphraseError,
+} from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { DEFAULT_SLIPPAGE_PCT, getSwapQuote, executeSwap } from "../../swap/index.js";
@@ -19,6 +26,7 @@ type SwapStep =
   | "enter-amount"
   | "enter-slippage"
   | "preview"
+  | "unlock"
   | "executing"
   | "result";
 
@@ -65,6 +73,11 @@ export default function SwapScreen({
   const [swapStatus, setSwapStatus] = useState("Preparing...");
   const [swapResult, setSwapResult] = useState<SwapResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unlockInput, setUnlockInput] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockWalletId, setUnlockWalletId] = useState<string | null>(null);
+  const [unlockWalletLabel, setUnlockWalletLabel] = useState("Active Wallet");
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [searchingTokens, setSearchingTokens] = useState(false);
@@ -74,7 +87,11 @@ export default function SwapScreen({
   const fetchInFlight = useRef(false);
 
   // Notify parent when text input capture state changes.
-  const isCapturing = step === "select-dest" || step === "enter-amount" || step === "enter-slippage";
+  const isCapturing =
+    step === "select-dest" ||
+    step === "enter-amount" ||
+    step === "enter-slippage" ||
+    step === "unlock";
   useEffect(() => {
     onCapturingInputChange(isCapturing);
   }, [isCapturing, onCapturingInputChange]);
@@ -205,23 +222,30 @@ export default function SwapScreen({
   const doSwap = useCallback(async () => {
     if (!quote) return;
 
-    setStep("executing");
-    setSwapStatus("Preparing...");
     try {
       const signer = await getActiveWalletSigner();
       if (!signer) {
         throw new Error("No active wallet signer available.");
       }
+
+      setStep("executing");
+      setSwapStatus("Preparing...");
       const result = await executeSwap(quote, signer, rpc, jupiterApiKey, setSwapStatus);
       setSwapResult(result);
       setStep("result");
       if (result.success) onTransactionComplete();
     } catch (err: unknown) {
-      const message = err instanceof WalletLockedError
-        ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
-        : err instanceof Error
-          ? err.message
-          : "Unknown swap error";
+      if (err instanceof WalletLockedError) {
+        const activeWallet = getActiveWalletEntry();
+        setUnlockWalletId(activeWallet?.id ?? null);
+        setUnlockWalletLabel(activeWallet?.label ?? "Active Wallet");
+        setUnlockInput("");
+        setUnlockError(null);
+        setUnlocking(false);
+        setStep("unlock");
+        return;
+      }
+
       setSwapResult({
         success: false,
         signature: null,
@@ -229,11 +253,47 @@ export default function SwapScreen({
         outputMint: quote.outputMint,
         inAmount: quote.inAmount,
         outAmount: quote.outAmount,
-        error: message,
+        error: err instanceof Error ? err.message : "Unknown swap error",
       });
       setStep("result");
     }
   }, [quote, rpc, jupiterApiKey, onTransactionComplete]);
+
+  const submitUnlock = useCallback(async () => {
+    if (!unlockWalletId || unlocking || !quote) {
+      return;
+    }
+
+    setUnlocking(true);
+    setUnlockError(null);
+
+    try {
+      await unlockWallet(unlockWalletId, unlockInput);
+      setUnlockInput("");
+      setUnlocking(false);
+      setStep("preview");
+      void doSwap();
+    } catch (err: unknown) {
+      if (err instanceof WalletPassphraseError || (err instanceof Error && err.message === "Incorrect passphrase.")) {
+        setUnlockError("Incorrect passphrase.");
+        setUnlocking(false);
+        return;
+      }
+
+      setUnlocking(false);
+      setUnlockInput("");
+      setSwapResult({
+        success: false,
+        signature: null,
+        inputMint: quote.inputMint,
+        outputMint: quote.outputMint,
+        inAmount: quote.inAmount,
+        outAmount: quote.outAmount,
+        error: err instanceof Error ? err.message : "Failed to unlock wallet.",
+      });
+      setStep("result");
+    }
+  }, [unlockWalletId, unlocking, quote, unlockInput, doSwap]);
 
   // --- Reset ---
 
@@ -250,6 +310,11 @@ export default function SwapScreen({
     setQuote(null);
     setSwapResult(null);
     setError(null);
+    setUnlockInput("");
+    setUnlockError(null);
+    setUnlocking(false);
+    setUnlockWalletId(null);
+    setUnlockWalletLabel("Active Wallet");
     setSelectedIndex(0);
     setBalances([]);
     setMetadata(new Map());
@@ -268,7 +333,12 @@ export default function SwapScreen({
 
       // Global escape — go back one step or reset.
       if (key.escape) {
-        if (step === "result") {
+        if (step === "unlock") {
+          setUnlockInput("");
+          setUnlockError(null);
+          setUnlocking(false);
+          setStep("preview");
+        } else if (step === "result") {
           resetSwap();
         } else if (step === "preview") {
           setStep("enter-slippage");
@@ -286,6 +356,26 @@ export default function SwapScreen({
           setDestResults([]);
           setDestMint("");
           setDestToken(null);
+        }
+        return;
+      }
+
+       if (step === "unlock") {
+        if (key.return && unlockInput.length > 0) {
+          void submitUnlock();
+          return;
+        }
+        if (key.backspace || key.delete) {
+          if (!unlocking) {
+            setUnlockInput((v) => v.slice(0, -1));
+            setUnlockError(null);
+          }
+          return;
+        }
+        if (input && !key.ctrl && !key.meta && !unlocking) {
+          setUnlockInput((v) => v + input);
+          setUnlockError(null);
+          return;
         }
         return;
       }
@@ -657,6 +747,15 @@ export default function SwapScreen({
         <Box flexDirection="column" marginTop={1}>
           <Text>{swapStatus}</Text>
         </Box>
+      )}
+
+      {step === "unlock" && (
+        <UnlockPrompt
+          walletLabel={unlockWalletLabel}
+          value={unlockInput}
+          error={unlockError}
+          submitting={unlocking}
+        />
       )}
 
       {/* Step: Result */}
