@@ -150,7 +150,10 @@ Run \`wui\` interactively to migrate existing wallets.`,
     );
   }
 
-  return entry;
+  return {
+    ...entry,
+    keyfilePath: getKeyfilePath(entry.id),
+  };
 }
 
 function readRawStore(): RawWalletStore {
@@ -208,7 +211,14 @@ function readStore(): WalletStore {
 
 function writeStore(store: WalletStore): void {
   ensureDataDirs();
-  writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), {
+  const normalizedStore: WalletStore = {
+    wallets: store.wallets.map((wallet) => ({
+      ...wallet,
+      keyfilePath: getKeyfilePath(wallet.id),
+    })),
+  };
+
+  writeFileSync(STORE_PATH, JSON.stringify(normalizedStore, null, 2), {
     encoding: "utf-8",
     mode: FILE_MODE,
   });
