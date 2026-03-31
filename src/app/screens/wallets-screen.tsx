@@ -10,13 +10,21 @@ import {
   importWallet,
   labelWallet,
   deleteWallet,
+  isWalletUnlocked,
+  lockWallet,
+  unlockWallet,
 } from "../../wallet/index.js";
 
 type WalletStep =
   | "list"
   | "create-label"
+  | "create-passphrase"
+  | "create-passphrase-confirm"
   | "import-label"
   | "import-path"
+  | "import-passphrase"
+  | "import-passphrase-confirm"
+  | "unlock-passphrase"
   | "rename"
   | "confirm-delete";
 
@@ -36,6 +44,8 @@ export default function WalletsScreen({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [textInput, setTextInput] = useState("");
   const [importLabel, setImportLabel] = useState("");
+  const [importPath, setImportPath] = useState("");
+  const [pendingPassphrase, setPendingPassphrase] = useState("");
   const [message, setMessage] = useState<{ text: string; color: string } | null>(null);
   const operationInFlight = useRef(false);
 
@@ -73,7 +83,19 @@ export default function WalletsScreen({
     setStep("list");
     setTextInput("");
     setImportLabel("");
+    setImportPath("");
+    setPendingPassphrase("");
     refreshList();
+  }
+
+  function isSecretStep(currentStep: WalletStep): boolean {
+    return (
+      currentStep === "create-passphrase" ||
+      currentStep === "create-passphrase-confirm" ||
+      currentStep === "import-passphrase" ||
+      currentStep === "import-passphrase-confirm" ||
+      currentStep === "unlock-passphrase"
+    );
   }
 
   useInput(
@@ -123,6 +145,17 @@ export default function WalletsScreen({
         // Delete.
         if (input === "d" && wallets.length > 0) {
           setStep("confirm-delete");
+          return;
+        }
+        if (input === "u" && wallets.length > 0) {
+          setStep("unlock-passphrase");
+          setTextInput("");
+          return;
+        }
+        if (input === "x" && wallets.length > 0) {
+          lockWallet(wallets[selectedIndex].id);
+          showMessage(`Locked "${wallets[selectedIndex].label}"`, "yellow");
+          refreshList();
           return;
         }
         // Copy public key.
@@ -180,16 +213,38 @@ export default function WalletsScreen({
 
   /** Handle enter key during text input steps. */
   function handleTextSubmit() {
-    const value = textInput.trim();
+    const value = isSecretStep(step) ? textInput : textInput.trim();
     if (!value) return;
 
     if (step === "create-label") {
+      setImportLabel(value);
+      setTextInput("");
+      setStep("create-passphrase");
+      return;
+    }
+
+    if (step === "create-passphrase") {
+      setPendingPassphrase(value);
+      setTextInput("");
+      setStep("create-passphrase-confirm");
+      return;
+    }
+
+    if (step === "create-passphrase-confirm") {
+      if (value !== pendingPassphrase) {
+        showMessage("Passphrases do not match", "red");
+        setTextInput("");
+        setPendingPassphrase("");
+        setStep("create-passphrase");
+        return;
+      }
+
       operationInFlight.current = true;
-      createWallet(value)
+      createWallet(importLabel, pendingPassphrase)
         .then(() => {
           if (!operationInFlight.current) return;
           onWalletChange();
-          showMessage(`Created wallet "${value}"`, "green");
+          showMessage(`Created encrypted wallet "${importLabel}"`, "green");
           resetToList();
         })
         .catch((err: unknown) => {
@@ -209,18 +264,60 @@ export default function WalletsScreen({
     }
 
     if (step === "import-path") {
+      setImportPath(value);
+      setTextInput("");
+      setStep("import-passphrase");
+      return;
+    }
+
+    if (step === "import-passphrase") {
+      setPendingPassphrase(value);
+      setTextInput("");
+      setStep("import-passphrase-confirm");
+      return;
+    }
+
+    if (step === "import-passphrase-confirm") {
+      if (value !== pendingPassphrase) {
+        showMessage("Passphrases do not match", "red");
+        setTextInput("");
+        setPendingPassphrase("");
+        setStep("import-passphrase");
+        return;
+      }
+
       operationInFlight.current = true;
-      importWallet(value, importLabel)
+      importWallet(importPath, importLabel, pendingPassphrase)
         .then(() => {
           if (!operationInFlight.current) return;
           onWalletChange();
-          showMessage(`Imported wallet "${importLabel}"`, "green");
+          showMessage(`Imported and encrypted "${importLabel}"`, "green");
           resetToList();
         })
         .catch((err: unknown) => {
           if (!operationInFlight.current) return;
           showMessage(err instanceof Error ? err.message : "Failed to import", "red");
           operationInFlight.current = false;
+        })
+        .finally(() => { operationInFlight.current = false; });
+      return;
+    }
+
+    if (step === "unlock-passphrase") {
+      const target = wallets[selectedIndex];
+      if (!target) return;
+
+      operationInFlight.current = true;
+      unlockWallet(target.id, value)
+        .then(() => {
+          if (!operationInFlight.current) return;
+          showMessage(`Unlocked "${target.label}"`, "green");
+          resetToList();
+        })
+        .catch((err: unknown) => {
+          if (!operationInFlight.current) return;
+          showMessage(err instanceof Error ? err.message : "Failed to unlock", "red");
+          setTextInput("");
         })
         .finally(() => { operationInFlight.current = false; });
       return;
@@ -277,11 +374,13 @@ export default function WalletsScreen({
                       {w.label.slice(0, 14).padEnd(16)}
                       {truncateAddress(w.publicKey).padEnd(14)}
                     </Text>
-                    {w.isActive ? (
-                      <Text color="green" bold>active</Text>
-                    ) : (
-                      <Text dimColor>-</Text>
-                    )}
+                    <Text color={w.isActive ? "green" : undefined} bold={w.isActive}>
+                      {w.isActive ? "active" : "      "}
+                    </Text>
+                    <Text dimColor> </Text>
+                    <Text color={isWalletUnlocked(w.id) ? "cyan" : "yellow"}>
+                      {isWalletUnlocked(w.id) ? "unlocked" : "locked"}
+                    </Text>
                   </Box>
                 );
               })}
@@ -289,7 +388,7 @@ export default function WalletsScreen({
           )}
           <Box marginTop={1}>
             <Text dimColor>
-              [enter] switch  [y] copy address  [c] create  [i] import  [l] rename  [d] delete
+              [enter] switch  [u] unlock  [x] lock  [y] copy  [c] create  [i] import  [l] rename  [d] delete
             </Text>
           </Box>
         </Box>
@@ -300,11 +399,41 @@ export default function WalletsScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>Label for new wallet: </Text>
-            <Text>{textInput}</Text>
+            <Text>{isSecretStep(step) ? "*".repeat(textInput.length) : textInput}</Text>
             <Text dimColor>_</Text>
           </Box>
           <Box marginTop={1}>
             <Text dimColor>[enter] confirm  [esc] cancel</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "create-passphrase" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Label: </Text>
+            <Text color="cyan">{importLabel}</Text>
+          </Box>
+          <Box>
+            <Text dimColor>Passphrase: </Text>
+            <Text>{"*".repeat(textInput.length)}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>Minimum 12 characters</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "create-passphrase-confirm" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Confirm passphrase: </Text>
+            <Text>{"*".repeat(textInput.length)}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[enter] create  [esc] cancel</Text>
           </Box>
         </Box>
       )}
@@ -340,6 +469,57 @@ export default function WalletsScreen({
         </Box>
       )}
 
+      {step === "import-passphrase" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Label: </Text>
+            <Text color="cyan">{importLabel}</Text>
+          </Box>
+          <Box>
+            <Text dimColor>Source path: </Text>
+            <Text>{importPath}</Text>
+          </Box>
+          <Box>
+            <Text dimColor>Passphrase: </Text>
+            <Text>{"*".repeat(textInput.length)}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>Wallet will be copied into ~/.wui/keys and encrypted.</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "import-passphrase-confirm" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Confirm passphrase: </Text>
+            <Text>{"*".repeat(textInput.length)}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[enter] import  [esc] cancel</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "unlock-passphrase" && wallets[selectedIndex] && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Unlocking: </Text>
+            <Text color="cyan">{wallets[selectedIndex].label}</Text>
+          </Box>
+          <Box>
+            <Text dimColor>Passphrase: </Text>
+            <Text>{"*".repeat(textInput.length)}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[enter] unlock  [esc] cancel</Text>
+          </Box>
+        </Box>
+      )}
+
       {/* Rename prompt */}
       {step === "rename" && wallets[selectedIndex] && (
         <Box flexDirection="column" marginTop={1}>
@@ -364,7 +544,7 @@ export default function WalletsScreen({
           <Text color="yellow">
             Delete wallet &quot;{wallets[selectedIndex].label}&quot;?
           </Text>
-          <Text dimColor>The keypair file will not be deleted.</Text>
+          <Text dimColor>The encrypted wallet file will be deleted from ~/.wui/keys.</Text>
           <Box marginTop={1}>
             <Text dimColor>[y] yes  [any key] cancel</Text>
           </Box>

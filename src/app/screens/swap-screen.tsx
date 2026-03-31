@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
-import { getActiveWalletSigner } from "../../wallet/index.js";
+import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { DEFAULT_SLIPPAGE_PCT, getSwapQuote, executeSwap } from "../../swap/index.js";
@@ -217,6 +217,11 @@ export default function SwapScreen({
       setStep("result");
       if (result.success) onTransactionComplete();
     } catch (err: unknown) {
+      const message = err instanceof WalletLockedError
+        ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+        : err instanceof Error
+          ? err.message
+          : "Unknown swap error";
       setSwapResult({
         success: false,
         signature: null,
@@ -224,7 +229,7 @@ export default function SwapScreen({
         outputMint: quote.outputMint,
         inAmount: quote.inAmount,
         outAmount: quote.outAmount,
-        error: err instanceof Error ? err.message : "Unknown swap error",
+        error: message,
       });
       setStep("result");
     }

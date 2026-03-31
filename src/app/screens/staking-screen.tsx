@@ -21,7 +21,7 @@ import {
   saveCustomValidator,
 } from "../../staking/index.js";
 import { isValidSolanaAddress } from "../../transfer/index.js";
-import { getActiveWalletSigner } from "../../wallet/index.js";
+import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { CustomValidator, StakeAccountInfo, StakeProvider, StakeTarget } from "../../types/staking.js";
 
@@ -335,7 +335,13 @@ export default function StakingScreen({
         succeeded = true;
       }
     } catch (err: unknown) {
-      setResultError(err instanceof Error ? err.message : "Staking failed.");
+      setResultError(
+        err instanceof WalletLockedError
+          ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+          : err instanceof Error
+            ? err.message
+            : "Staking failed.",
+      );
     }
 
     setStep("result");
@@ -371,7 +377,13 @@ export default function StakingScreen({
       setResultSignature(sig);
       succeeded = true;
     } catch (err: unknown) {
-      setResultError(err instanceof Error ? err.message : "Unstake failed.");
+      setResultError(
+        err instanceof WalletLockedError
+          ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+          : err instanceof Error
+            ? err.message
+            : "Unstake failed.",
+      );
     }
     setStep("result");
     if (succeeded) onTransactionComplete();
@@ -392,7 +404,13 @@ export default function StakingScreen({
       setResultSignature(sig);
       succeeded = true;
     } catch (err: unknown) {
-      setResultError(err instanceof Error ? err.message : "Deactivate failed.");
+      setResultError(
+        err instanceof WalletLockedError
+          ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+          : err instanceof Error
+            ? err.message
+            : "Deactivate failed.",
+      );
     }
     setStep("result");
     if (succeeded) onTransactionComplete();
@@ -411,7 +429,13 @@ export default function StakingScreen({
       setResultSignature(sig);
       succeeded = true;
     } catch (err: unknown) {
-      setResultError(err instanceof Error ? err.message : "Withdraw failed.");
+      setResultError(
+        err instanceof WalletLockedError
+          ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
+          : err instanceof Error
+            ? err.message
+            : "Withdraw failed.",
+      );
     }
     setStep("result");
     if (succeeded) onTransactionComplete();
