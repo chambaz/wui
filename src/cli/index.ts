@@ -1,7 +1,7 @@
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { loadConfig } from "../lib/config.js";
 import { initRpc, checkRpcHealth } from "../lib/rpc.js";
-import { getActiveWalletEntry } from "../wallet/index.js";
+import { getActiveWalletEntry, hasLegacyWallets } from "../wallet/index.js";
 import type { AppConfig } from "../lib/config.js";
 import type { WalletEntry } from "../types/wallet.js";
 
@@ -42,6 +42,12 @@ export function parseArgs(argv: string[]): CliArgs {
  * Throws with a user-friendly message if anything is missing.
  */
 export async function bootstrap(): Promise<CliContext> {
+  if (hasLegacyWallets()) {
+    throw new Error(
+      "Wallet storage upgrade required. Run `wui` interactively once to migrate existing wallets.",
+    );
+  }
+
   const config = loadConfig();
   if (!config) {
     throw new Error("Not configured. Run `wui` to set up.");

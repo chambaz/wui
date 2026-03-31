@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { randomBytes, randomUUID, scryptSync, createCipheriv, createDecipheriv, webcrypto } from "crypto";
 import { homedir } from "os";
 import { join, resolve } from "path";
-import { randomBytes, randomUUID, scryptSync, createCipheriv, createDecipheriv, webcrypto } from "crypto";
 import {
   createKeyPairSignerFromPrivateKeyBytes,
   type KeyPairSigner,
@@ -45,9 +45,25 @@ interface EncryptedWalletFile {
   };
 }
 
+interface LegacyWalletEntry {
+  label: string;
+  publicKey: string;
+  keypairPath: string;
+  isActive: boolean;
+}
+
+interface RawWalletStore {
+  wallets?: unknown[];
+}
+
 interface UnlockedWalletSession {
   signer: KeyPairSigner;
   timer: ReturnType<typeof setTimeout>;
+}
+
+export interface LegacyWalletMigrationInfo {
+  count: number;
+  labels: string[];
 }
 
 const unlockedWallets = new Map<string, UnlockedWalletSession>();
@@ -56,7 +72,7 @@ export class WalletLockedError extends Error {
   walletId: string;
 
   constructor(walletId: string, label: string) {
-    super(`Wallet \"${label}\" is locked.`);
+    super(`Wallet "${label}" is locked.`);
     this.name = "WalletLockedError";
     this.walletId = walletId;
   }
@@ -76,6 +92,15 @@ export class WalletCorruptedError extends Error {
   }
 }
 
+export class WalletMigrationRequiredError extends Error {
+  constructor(count: number) {
+    super(
+      `Wallet storage upgrade required for ${count} wallet${count === 1 ? "" : "s"}. Run \`wui\` interactively to migrate them.`,
+    );
+    this.name = "WalletMigrationRequiredError";
+  }
+}
+
 function ensureDataDirs(): void {
   mkdirSync(DATA_DIR, { recursive: true, mode: DIR_MODE });
   mkdirSync(KEYS_DIR, { recursive: true, mode: DIR_MODE });
@@ -83,27 +108,52 @@ function ensureDataDirs(): void {
   chmodSync(KEYS_DIR, DIR_MODE);
 }
 
+function expandPath(path: string): string {
+  return path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
+}
+
+function normalizePath(path: string): string {
+  return resolve(expandPath(path));
+}
+
+function isWalletEntry(entry: unknown): entry is WalletEntry {
+  return Boolean(
+    entry &&
+    typeof entry === "object" &&
+    typeof (entry as WalletEntry).id === "string" &&
+    typeof (entry as WalletEntry).label === "string" &&
+    typeof (entry as WalletEntry).publicKey === "string" &&
+    typeof (entry as WalletEntry).keyfilePath === "string" &&
+    typeof (entry as WalletEntry).isActive === "boolean" &&
+    (entry as WalletEntry).storageType === "encrypted",
+  );
+}
+
+function isLegacyWalletEntry(entry: unknown): entry is LegacyWalletEntry {
+  return Boolean(
+    entry &&
+    typeof entry === "object" &&
+    typeof (entry as LegacyWalletEntry).label === "string" &&
+    typeof (entry as LegacyWalletEntry).publicKey === "string" &&
+    typeof (entry as LegacyWalletEntry).keypairPath === "string" &&
+    typeof (entry as LegacyWalletEntry).isActive === "boolean" &&
+    typeof (entry as Record<string, unknown>).id === "undefined" &&
+    typeof (entry as Record<string, unknown>).keyfilePath === "undefined"
+  );
+}
+
 function validateWalletEntry(entry: unknown): WalletEntry {
-  if (
-    !entry ||
-    typeof entry !== "object" ||
-    typeof (entry as WalletEntry).id !== "string" ||
-    typeof (entry as WalletEntry).label !== "string" ||
-    typeof (entry as WalletEntry).publicKey !== "string" ||
-    typeof (entry as WalletEntry).keyfilePath !== "string" ||
-    typeof (entry as WalletEntry).isActive !== "boolean" ||
-    (entry as WalletEntry).storageType !== "encrypted"
-  ) {
+  if (!isWalletEntry(entry)) {
     throw new Error(
-      `Wallet data file uses an unsupported format: ${STORE_PATH}\n` +
-      `Delete ~/.wui to start fresh with encrypted storage.`,
+      `Wallet data file uses an unsupported format: ${STORE_PATH}
+Run \`wui\` interactively to migrate existing wallets.`,
     );
   }
 
-  return entry as WalletEntry;
+  return entry;
 }
 
-function readStore(): WalletStore {
+function readRawStore(): RawWalletStore {
   ensureDataDirs();
 
   if (!existsSync(STORE_PATH)) {
@@ -111,22 +161,49 @@ function readStore(): WalletStore {
   }
 
   try {
-    const parsed = JSON.parse(readFileSync(STORE_PATH, "utf-8")) as { wallets?: unknown[] };
-    return {
-      wallets: Array.isArray(parsed.wallets)
-        ? parsed.wallets.map(validateWalletEntry)
-        : [],
-    };
-  } catch (error: unknown) {
-    if (error instanceof Error && error.message.includes("unsupported format")) {
-      throw error;
-    }
-
+    return JSON.parse(readFileSync(STORE_PATH, "utf-8")) as RawWalletStore;
+  } catch {
     throw new Error(
-      `Wallet data file is corrupted: ${STORE_PATH}\n` +
-      `Delete ~/.wui to start fresh with encrypted storage.`,
+      `Wallet data file is corrupted: ${STORE_PATH}
+Delete or fix the file to continue.`,
     );
   }
+}
+
+function readEncryptedStore(): WalletStore {
+  const rawStore = readRawStore();
+  const wallets = Array.isArray(rawStore.wallets) ? rawStore.wallets : [];
+
+  for (const entry of wallets) {
+    if (!isWalletEntry(entry) && !isLegacyWalletEntry(entry)) {
+      throw new Error(
+        `Wallet data file is corrupted: ${STORE_PATH}
+Delete or fix the file to continue.`,
+      );
+    }
+  }
+
+  return {
+    wallets: wallets.filter(isWalletEntry).map(validateWalletEntry),
+  };
+}
+
+function readLegacyEntries(): LegacyWalletEntry[] {
+  const rawStore = readRawStore();
+  if (!Array.isArray(rawStore.wallets)) {
+    return [];
+  }
+
+  return rawStore.wallets.filter(isLegacyWalletEntry);
+}
+
+function readStore(): WalletStore {
+  const legacyEntries = readLegacyEntries();
+  if (legacyEntries.length > 0) {
+    throw new WalletMigrationRequiredError(legacyEntries.length);
+  }
+
+  return readEncryptedStore();
 }
 
 function writeStore(store: WalletStore): void {
@@ -157,10 +234,6 @@ function validatePassphrase(passphrase: string): void {
   }
 }
 
-function expandPath(path: string): string {
-  return path.startsWith("~/") ? join(homedir(), path.slice(2)) : path;
-}
-
 function getWalletEntryById(walletId: string): WalletEntry {
   const wallet = readStore().wallets.find((entry) => entry.id === walletId);
   if (!wallet) {
@@ -171,6 +244,11 @@ function getWalletEntryById(walletId: string): WalletEntry {
 
 function getKeyfilePath(walletId: string): string {
   return join(KEYS_DIR, `${walletId}.json`);
+}
+
+function isManagedLegacyKeyfile(path: string): boolean {
+  const absolutePath = normalizePath(path);
+  return absolutePath.startsWith(`${KEYS_DIR}/`);
 }
 
 function readPlaintextKeypairBytes(path: string): Uint8Array {
@@ -429,6 +507,18 @@ export function listWallets(): WalletEntry[] {
   return readStore().wallets;
 }
 
+export function getLegacyWalletMigrationInfo(): LegacyWalletMigrationInfo {
+  const legacyEntries = readLegacyEntries();
+  return {
+    count: legacyEntries.length,
+    labels: legacyEntries.map((entry) => entry.label),
+  };
+}
+
+export function hasLegacyWallets(): boolean {
+  return getLegacyWalletMigrationInfo().count > 0;
+}
+
 export function getActiveWalletEntry(): WalletEntry | null {
   return readStore().wallets.find((wallet) => wallet.isActive) ?? null;
 }
@@ -486,7 +576,7 @@ export async function getActiveWalletSigner(): Promise<KeyPairSigner | null> {
 }
 
 export async function importWallet(keypairPath: string, label: string, passphrase: string): Promise<WalletEntry> {
-  const absolutePath = resolve(expandPath(keypairPath));
+  const absolutePath = normalizePath(keypairPath);
   if (!existsSync(absolutePath)) {
     throw new Error(`Keypair file not found: ${absolutePath}`);
   }
@@ -513,6 +603,102 @@ export async function createWallet(label: string, passphrase: string): Promise<W
     return await createWalletEntry(fullKeypair, normalizedLabel, passphrase);
   } finally {
     fullKeypair.fill(0);
+  }
+}
+
+export async function migrateLegacyWallets(passphrase: string): Promise<void> {
+  validatePassphrase(passphrase);
+
+  const legacyEntries = readLegacyEntries();
+  if (legacyEntries.length === 0) {
+    return;
+  }
+
+  const encryptedStore = readEncryptedStore();
+  const nextWallets = [...encryptedStore.wallets];
+  const createdFiles: string[] = [];
+  const managedLegacyFilesToDelete: string[] = [];
+
+  try {
+    for (const legacyEntry of legacyEntries) {
+      validateLabel(legacyEntry.label);
+
+      if (nextWallets.some((wallet) => wallet.label === legacyEntry.label)) {
+        throw new Error(`Cannot migrate duplicate wallet label: ${legacyEntry.label}`);
+      }
+
+      if (nextWallets.some((wallet) => wallet.publicKey === legacyEntry.publicKey)) {
+        throw new Error(`Cannot migrate duplicate wallet public key: ${legacyEntry.publicKey}`);
+      }
+
+      const absolutePath = normalizePath(legacyEntry.keypairPath);
+      if (!existsSync(absolutePath)) {
+        throw new Error(`Legacy keypair file not found: ${absolutePath}`);
+      }
+
+      const keypairBytes = readPlaintextKeypairBytes(absolutePath);
+
+      try {
+        const signer = await signerFromKeypairBytes(keypairBytes);
+        if (signer.address !== legacyEntry.publicKey) {
+          throw new Error(`Legacy wallet public key mismatch for ${legacyEntry.label}`);
+        }
+
+        const id = randomUUID();
+        const keyfilePath = getKeyfilePath(id);
+        const vaultFile = createEncryptedWalletFile(
+          keypairBytes,
+          id,
+          legacyEntry.label,
+          legacyEntry.publicKey,
+          passphrase,
+        );
+
+        writeEncryptedWalletFile(vaultFile, keyfilePath);
+        createdFiles.push(keyfilePath);
+
+        const verificationBytes = decryptWalletFile(vaultFile, passphrase);
+        verificationBytes.fill(0);
+
+        nextWallets.push({
+          id,
+          label: legacyEntry.label,
+          publicKey: legacyEntry.publicKey,
+          keyfilePath,
+          isActive: legacyEntry.isActive,
+          storageType: "encrypted",
+        });
+
+        if (isManagedLegacyKeyfile(absolutePath)) {
+          managedLegacyFilesToDelete.push(absolutePath);
+        }
+      } finally {
+        keypairBytes.fill(0);
+      }
+    }
+
+    if (nextWallets.length > 0 && !nextWallets.some((wallet) => wallet.isActive)) {
+      nextWallets[0].isActive = true;
+    }
+
+    writeStore({ wallets: nextWallets });
+  } catch (error: unknown) {
+    for (const path of createdFiles) {
+      if (existsSync(path)) {
+        unlinkSync(path);
+      }
+    }
+    throw error;
+  }
+
+  for (const path of managedLegacyFilesToDelete) {
+    if (existsSync(path)) {
+      try {
+        unlinkSync(path);
+      } catch {
+        // Leave any remaining legacy file in place rather than failing after a successful migration.
+      }
+    }
   }
 }
 

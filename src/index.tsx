@@ -2,8 +2,9 @@
 import { render } from "ink";
 import { loadConfig } from "./lib/config.js";
 import { initRpc, checkRpcHealth } from "./lib/rpc.js";
-import { getActiveWalletEntry } from "./wallet/index.js";
+import { getActiveWalletEntry, hasLegacyWallets } from "./wallet/index.js";
 import App from "./app/app.js";
+import MigrateWallets from "./app/migrate-wallets.js";
 import Setup from "./app/setup.js";
 import { parseArgs } from "./cli/index.js";
 import { portfolioCommand } from "./cli/portfolio.js";
@@ -12,7 +13,17 @@ import { sendCommand } from "./cli/send.js";
 import type { AppConfig } from "./lib/config.js";
 
 /** Launch the interactive TUI. */
-async function launchApp(config: AppConfig) {
+async function launchApp(config: AppConfig): Promise<void> {
+  if (hasLegacyWallets()) {
+    return launchMigration(() => {
+      const refreshedConfig = loadConfig();
+      if (!refreshedConfig) {
+        throw new Error("Configuration not found after wallet migration.");
+      }
+      return launchApp(refreshedConfig);
+    });
+  }
+
   const rpc = initRpc(config.solanaRpcUrl);
 
   const rpcConnected = await checkRpcHealth(rpc);
@@ -33,6 +44,23 @@ async function launchApp(config: AppConfig) {
       config={config}
     />,
   );
+}
+
+/** Launch the one-time wallet migration flow. */
+function launchMigration(onComplete: () => void | Promise<void>): Promise<void> {
+  const { unmount, waitUntilExit } = render(
+    <MigrateWallets
+      onComplete={() => {
+        unmount();
+        Promise.resolve(onComplete()).catch((err: Error) => {
+          console.error(err.message);
+          process.exit(1);
+        });
+      }}
+    />,
+  );
+
+  return waitUntilExit().then(() => undefined);
 }
 
 /** Launch the interactive setup flow. */
