@@ -360,28 +360,48 @@ function assertHexString(value: unknown, field: string): string {
   return value;
 }
 
+function assertObject(value: unknown, field: string): Record<string, unknown> {
+  if (!value || typeof value !== "object") {
+    throw new WalletCorruptedError(`Wallet file is corrupted: invalid ${field}.`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function assertNumber(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new WalletCorruptedError(`Wallet file is corrupted: invalid ${field}.`);
+  }
+
+  return value;
+}
+
 function validateEncryptedWalletFile(file: EncryptedWalletFile): void {
-  if (file.crypto.kdf !== "scrypt") {
+  const crypto = assertObject(file.crypto, "crypto");
+  const kdfparams = assertObject(crypto.kdfparams, "kdfparams");
+  const cipherparams = assertObject(crypto.cipherparams, "cipherparams");
+
+  if (crypto.kdf !== "scrypt") {
     throw new WalletCorruptedError("Wallet file is corrupted: unsupported key derivation function.");
   }
 
-  if (file.crypto.cipher !== "aes-256-gcm") {
+  if (crypto.cipher !== "aes-256-gcm") {
     throw new WalletCorruptedError("Wallet file is corrupted: unsupported cipher.");
   }
 
   if (
-    file.crypto.kdfparams.N !== SCRYPT_N ||
-    file.crypto.kdfparams.r !== SCRYPT_R ||
-    file.crypto.kdfparams.p !== SCRYPT_P ||
-    file.crypto.kdfparams.dkLen !== SCRYPT_DK_LEN
+    assertNumber(kdfparams.N, "kdfparams.N") !== SCRYPT_N ||
+    assertNumber(kdfparams.r, "kdfparams.r") !== SCRYPT_R ||
+    assertNumber(kdfparams.p, "kdfparams.p") !== SCRYPT_P ||
+    assertNumber(kdfparams.dkLen, "kdfparams.dkLen") !== SCRYPT_DK_LEN
   ) {
     throw new WalletCorruptedError("Wallet file is corrupted: unsupported key derivation parameters.");
   }
 
-  assertHexString(file.crypto.kdfparams.salt, "salt");
-  const iv = assertHexString(file.crypto.cipherparams.iv, "iv");
-  const authTag = assertHexString(file.crypto.authTag, "auth tag");
-  assertHexString(file.crypto.ciphertext, "ciphertext");
+  assertHexString(kdfparams.salt, "salt");
+  const iv = assertHexString(cipherparams.iv, "iv");
+  const authTag = assertHexString(crypto.authTag, "auth tag");
+  assertHexString(crypto.ciphertext, "ciphertext");
 
   if (Buffer.from(iv, "hex").length !== 12) {
     throw new WalletCorruptedError("Wallet file is corrupted: invalid IV length.");
@@ -758,14 +778,27 @@ export function deleteWallet(label: string): void {
 
   const [wallet] = store.wallets.splice(index, 1);
   lockWallet(wallet.id);
+  const keyfileExisted = existsSync(wallet.keyfilePath);
+  const keyfileContents = keyfileExisted ? readFileSync(wallet.keyfilePath, "utf-8") : null;
 
   if (wallet.isActive && store.wallets.length > 0) {
     store.wallets[0].isActive = true;
   }
 
-  writeStore(store);
-
-  if (existsSync(wallet.keyfilePath)) {
+  if (keyfileExisted) {
     unlinkSync(wallet.keyfilePath);
+  }
+
+  try {
+    writeStore(store);
+  } catch (error: unknown) {
+    if (keyfileContents !== null) {
+      writeFileSync(wallet.keyfilePath, keyfileContents, {
+        encoding: "utf-8",
+        mode: FILE_MODE,
+      });
+      chmodSync(wallet.keyfilePath, FILE_MODE);
+    }
+    throw error;
   }
 }
