@@ -2,7 +2,14 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import Link from "ink-link";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
-import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
+import UnlockPrompt from "../../components/unlock-prompt.js";
+import {
+  getActiveWalletEntry,
+  getActiveWalletSigner,
+  unlockWallet,
+  WalletLockedError,
+  WalletPassphraseError,
+} from "../../wallet/index.js";
 import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
@@ -18,6 +25,7 @@ type SendStep =
   | "enter-recipient"
   | "enter-amount"
   | "preview"
+  | "unlock"
   | "executing"
   | "result";
 
@@ -57,6 +65,11 @@ export default function SendScreen({
   const [sendStatus, setSendStatus] = useState("Preparing...");
   const [sendResult, setSendResult] = useState<TransferResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unlockInput, setUnlockInput] = useState("");
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockWalletId, setUnlockWalletId] = useState<string | null>(null);
+  const [unlockWalletLabel, setUnlockWalletLabel] = useState("Active Wallet");
   const [copied, setCopied] = useState(false);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -64,7 +77,10 @@ export default function SendScreen({
   const fetchInFlight = useRef(false);
 
   // Notify parent about text input capture.
-  const isCapturing = step === "enter-recipient" || step === "enter-amount";
+  const isCapturing =
+    step === "enter-recipient" ||
+    step === "enter-amount" ||
+    step === "unlock";
   useEffect(() => {
     onCapturingInputChange(isCapturing);
   }, [isCapturing, onCapturingInputChange]);
@@ -137,13 +153,40 @@ export default function SendScreen({
 
   const sendInFlight = useRef(false);
 
+  const openUnlockPrompt = useCallback(() => {
+    const activeWallet = getActiveWalletEntry();
+    setUnlockWalletId(activeWallet?.id ?? null);
+    setUnlockWalletLabel(activeWallet?.label ?? "Active Wallet");
+    setUnlockInput("");
+    setUnlockError(null);
+    setUnlocking(false);
+    setStep("unlock");
+  }, []);
+
+  const showSendFailure = useCallback((message: string) => {
+    if (!sourceToken) {
+      setError(message);
+      setStep("preview");
+      return;
+    }
+
+    setSendResult({
+      success: false,
+      signature: null,
+      mint: sourceToken.mint,
+      recipient: recipientInput,
+      amount: 0n,
+      decimals: sourceToken.decimals,
+      error: message,
+    });
+    setStep("result");
+  }, [sourceToken, recipientInput]);
+
   /** Execute the send. */
   const doSend = useCallback(async () => {
     if (!sourceToken || sendInFlight.current) return;
     sendInFlight.current = true;
 
-    setStep("executing");
-    setSendStatus("Preparing...");
     try {
       const signer = await getActiveWalletSigner();
       if (!signer) {
@@ -168,6 +211,9 @@ export default function SendScreen({
         throw new Error("Amount exceeds available balance.");
       }
 
+      setStep("executing");
+      setSendStatus("Preparing...");
+
       const result = await executeTransfer(
         {
           mint: sourceToken.mint,
@@ -184,25 +230,43 @@ export default function SendScreen({
       setStep("result");
       if (result.success) onTransactionComplete();
     } catch (err: unknown) {
-      const message = err instanceof WalletLockedError
-        ? "Wallet locked. Open Wallets [w] and press [u] to unlock it."
-        : err instanceof Error
-          ? err.message
-          : "Unknown error";
-      setSendResult({
-        success: false,
-        signature: null,
-        mint: sourceToken.mint,
-        recipient: recipientInput,
-        amount: 0n,
-        decimals: sourceToken.decimals,
-        error: message,
-      });
-      setStep("result");
+      if (err instanceof WalletLockedError) {
+        openUnlockPrompt();
+        return;
+      }
+
+      showSendFailure(err instanceof Error ? err.message : "Unknown error");
     } finally {
       sendInFlight.current = false;
     }
-  }, [sourceToken, amountInput, recipientInput, rpc, onTransactionComplete]);
+  }, [sourceToken, amountInput, recipientInput, rpc, onTransactionComplete, openUnlockPrompt, showSendFailure]);
+
+  const submitUnlock = useCallback(async () => {
+    if (!unlockWalletId || unlocking) {
+      return;
+    }
+
+    setUnlocking(true);
+    setUnlockError(null);
+
+    try {
+      await unlockWallet(unlockWalletId, unlockInput);
+      setUnlockInput("");
+      setUnlocking(false);
+      setStep("preview");
+      void doSend();
+    } catch (err: unknown) {
+      if (err instanceof WalletPassphraseError || (err instanceof Error && err.message === "Incorrect passphrase.")) {
+        setUnlockError("Incorrect passphrase.");
+        setUnlocking(false);
+        return;
+      }
+
+      setUnlocking(false);
+      setUnlockInput("");
+      showSendFailure(err instanceof Error ? err.message : "Failed to unlock wallet.");
+    }
+  }, [unlockWalletId, unlocking, unlockInput, doSend, showSendFailure]);
 
   /** Reset to initial state. */
   const resetSend = useCallback(() => {
@@ -212,6 +276,11 @@ export default function SendScreen({
     setAmountInput("");
     setSendResult(null);
     setError(null);
+    setUnlockInput("");
+    setUnlockError(null);
+    setUnlocking(false);
+    setUnlockWalletId(null);
+    setUnlockWalletLabel("Active Wallet");
     setSelectedIndex(0);
     setBalances([]);
     setMetadata(new Map());
@@ -229,7 +298,12 @@ export default function SendScreen({
 
       // Escape — go back one step.
       if (key.escape) {
-        if (step === "result") {
+        if (step === "unlock") {
+          setUnlockInput("");
+          setUnlockError(null);
+          setUnlocking(false);
+          setStep("preview");
+        } else if (step === "result") {
           resetSend();
         } else if (step === "preview") {
           setStep("enter-amount");
@@ -240,6 +314,25 @@ export default function SendScreen({
           setStep("select-token");
           setRecipientInput("");
           setSourceToken(null);
+        }
+        return;
+      }
+
+      if (step === "unlock") {
+        if (key.return && unlockInput.length > 0) {
+          void submitUnlock();
+          return;
+        }
+        if (key.backspace || key.delete) {
+          if (!unlocking) {
+            setUnlockInput((v) => v.slice(0, -1));
+            setUnlockError(null);
+          }
+          return;
+        }
+        if (input && !key.ctrl && !key.meta && !unlocking) {
+          setUnlockInput((v) => v + input);
+          setUnlockError(null);
         }
         return;
       }
@@ -489,6 +582,15 @@ export default function SendScreen({
         <Box flexDirection="column" marginTop={1}>
           <Text>{sendStatus}</Text>
         </Box>
+      )}
+
+      {step === "unlock" && (
+        <UnlockPrompt
+          walletLabel={unlockWalletLabel}
+          value={unlockInput}
+          error={unlockError}
+          submitting={unlocking}
+        />
       )}
 
       {/* Step: Result */}
