@@ -40,7 +40,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
     if (error instanceof WalletLockedError) {
       if (json) {
         throw new Error(
-          "Encrypted wallet is locked. JSON mode requires an already unlocked wallet in an interactive session.",
+          "Encrypted wallets are not supported with `wui send --json` because passphrase entry requires an interactive terminal.",
         );
       }
       const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet \"${wallet.label}\": `);
