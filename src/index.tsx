@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { render } from "ink";
+import packageJson from "../package.json";
 import { loadConfig } from "./lib/config.js";
 import { initRpc, checkRpcHealth } from "./lib/rpc.js";
 import { getActiveWalletEntry, hasLegacyWallets } from "./wallet/index.js";
@@ -42,6 +43,7 @@ async function launchApp(config: AppConfig): Promise<void> {
       rpcConnected={rpcConnected}
       rpc={rpc}
       config={config}
+      version={packageJson.version}
     />,
   );
 }

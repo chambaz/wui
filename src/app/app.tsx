@@ -15,14 +15,12 @@ import ActivityScreen from "./screens/activity-screen.js";
 import WalletsScreen from "./screens/wallets-screen.js";
 import StakingScreen from "./screens/staking-screen.js";
 
-/** App version. */
-const VERSION = "1.0.2";
-
 interface AppProps {
   wallet: WalletEntry | null;
   rpcConnected: boolean;
   rpc: Rpc<SolanaRpcApi>;
   config: AppConfig;
+  version: string;
 }
 
 const SCREEN_KEYS: Record<string, Screen> = {
@@ -39,6 +37,7 @@ export default function App({
   rpcConnected,
   rpc,
   config,
+  version,
 }: AppProps) {
   const { exit } = useApp();
   const [screen, setScreen] = useState<Screen>("portfolio");
@@ -108,7 +107,7 @@ export default function App({
   return (
     <Box flexDirection="column">
       {/* Splash shown above the app */}
-      <Splash version={VERSION} />
+      <Splash version={version} />
 
       {/* Main app */}
       <Header
