@@ -5,7 +5,7 @@ import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import UnlockPrompt from "../../components/unlock-prompt.js";
 import {
   getActiveWalletEntry,
-  getActiveWalletSigner,
+  getActiveWalletProvider,
   unlockWallet,
   WalletLockedError,
   WalletPassphraseError,
@@ -188,9 +188,9 @@ export default function SendScreen({
     sendInFlight.current = true;
 
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("No active wallet signer available.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("No active wallet provider available.");
       }
 
       // Parse amount to raw units.
@@ -222,7 +222,7 @@ export default function SendScreen({
           decimals: sourceToken.decimals,
           isNative: sourceToken.isNative,
         },
-        signer,
+        provider,
         rpc,
         setSendStatus,
       );

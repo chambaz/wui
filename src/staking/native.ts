@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   generateKeyPairSigner,
   pipe,
@@ -9,9 +8,6 @@ import {
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
   appendTransactionMessageInstruction,
-  addSignersToTransactionMessage,
-  signTransactionMessageWithSigners,
-  getBase64EncodedWireTransaction,
 } from "@solana/kit";
 import {
   getInitializeInstruction,
@@ -20,17 +16,22 @@ import {
   getWithdrawInstruction,
 } from "@solana-program/stake";
 import { getCreateAccountInstruction } from "@solana-program/system";
+import type { WalletProvider } from "../wallet/provider.js";
 import { STAKE_ACCOUNT_SIZE, SYSTEM_PROGRAM } from "./constants.js";
 import { sendAndConfirm } from "./confirm.js";
 
 export async function createNativeStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   validatorVoteAccount: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  const signer = await provider.getTransactionSigner();
+  if (!signer) {
+    throw new Error("Wallet does not expose a transaction signer for native staking.");
+  }
   const stakeAccountSigner = await generateKeyPairSigner();
   const rentExempt = await rpc.getMinimumBalanceForRentExemption(STAKE_ACCOUNT_SIZE).send();
   const totalLamports = lamports + rentExempt;
@@ -46,7 +47,7 @@ export async function createNativeStake(
 
   const initializeIx = getInitializeInstruction({
     stake: address(stakeAccountSigner.address),
-    arg0: { staker: address(signer.address), withdrawer: address(signer.address) },
+    arg0: { staker: address(provider.publicKey), withdrawer: address(provider.publicKey) },
     arg1: { unixTimestamp: 0n as never, epoch: 0n as never, custodian: address(SYSTEM_PROGRAM) },
   });
 
@@ -60,68 +61,73 @@ export async function createNativeStake(
   onStatus?.("Signing transaction...");
   const txMessage = pipe(
     createTransactionMessage({ version: 0 }),
-    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
     (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
-    (msg) => addSignersToTransactionMessage([signer, stakeAccountSigner], msg),
     (msg) => appendTransactionMessageInstruction(createAccountIx, msg),
     (msg) => appendTransactionMessageInstruction(initializeIx, msg),
     (msg) => appendTransactionMessageInstruction(delegateIx, msg),
   );
 
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
-  const encoded = getBase64EncodedWireTransaction(signedTx);
+  const encoded = await provider.signTransactionMessage(txMessage, [stakeAccountSigner]);
   onStatus?.("Broadcasting transaction...");
   return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
 }
 
 export async function deactivateStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   stakeAccountAddress: string,
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  const signer = await provider.getTransactionSigner();
+  if (!signer) {
+    throw new Error("Wallet does not expose a transaction signer for stake deactivation.");
+  }
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-  const deactivateIx = getDeactivateInstruction({ stake: address(stakeAccountAddress), stakeAuthority: signer });
+  const deactivateIx = getDeactivateInstruction({
+    stake: address(stakeAccountAddress),
+    stakeAuthority: signer,
+  });
   const txMessage = pipe(
     createTransactionMessage({ version: 0 }),
-    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
     (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
-    (msg) => addSignersToTransactionMessage([signer], msg),
     (msg) => appendTransactionMessageInstruction(deactivateIx, msg),
   );
   onStatus?.("Signing transaction...");
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
-  const encoded = getBase64EncodedWireTransaction(signedTx);
+  const encoded = await provider.signTransactionMessage(txMessage);
   onStatus?.("Broadcasting transaction...");
   return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
 }
 
 export async function withdrawStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   stakeAccountAddress: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  const signer = await provider.getTransactionSigner();
+  if (!signer) {
+    throw new Error("Wallet does not expose a transaction signer for stake withdrawal.");
+  }
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
   const withdrawIx = getWithdrawInstruction({
     stake: address(stakeAccountAddress),
-    recipient: address(signer.address),
+    recipient: address(provider.publicKey),
     withdrawAuthority: signer,
     args: lamports,
   });
   const txMessage = pipe(
     createTransactionMessage({ version: 0 }),
-    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
     (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
-    (msg) => addSignersToTransactionMessage([signer], msg),
     (msg) => appendTransactionMessageInstruction(withdrawIx, msg),
   );
   onStatus?.("Signing transaction...");
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
-  const encoded = getBase64EncodedWireTransaction(signedTx);
+  const encoded = await provider.signTransactionMessage(txMessage);
   onStatus?.("Broadcasting transaction...");
   return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
 }

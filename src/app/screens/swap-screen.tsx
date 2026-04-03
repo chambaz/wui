@@ -5,7 +5,7 @@ import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import UnlockPrompt from "../../components/unlock-prompt.js";
 import {
   getActiveWalletEntry,
-  getActiveWalletSigner,
+  getActiveWalletProvider,
   unlockWallet,
   WalletLockedError,
   WalletPassphraseError,
@@ -223,14 +223,14 @@ export default function SwapScreen({
     if (!quote) return;
 
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("No active wallet signer available.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("No active wallet provider available.");
       }
 
       setStep("executing");
       setSwapStatus("Preparing...");
-      const result = await executeSwap(quote, signer, rpc, jupiterApiKey, setSwapStatus);
+      const result = await executeSwap(quote, provider, rpc, jupiterApiKey, setSwapStatus);
       setSwapResult(result);
       setStep("result");
       if (result.success) onTransactionComplete();

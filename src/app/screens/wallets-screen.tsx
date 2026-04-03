@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import { truncateAddress } from "../../lib/format.js";
-import type { WalletEntry } from "../../types/wallet.js";
+import { isSoftwareWalletEntry, type WalletEntry } from "../../types/wallet.js";
 import {
   listWallets,
   switchWallet,
@@ -98,6 +98,18 @@ export default function WalletsScreen({
     );
   }
 
+  function selectedWallet(): WalletEntry | null {
+    return wallets[selectedIndex] ?? null;
+  }
+
+  function walletStatus(wallet: WalletEntry): string {
+    if (!isSoftwareWalletEntry(wallet)) {
+      return "hardware";
+    }
+
+    return isWalletUnlocked(wallet.id) ? "unlocked" : "locked";
+  }
+
   useInput(
     (input, key) => {
       if (!isActive) return;
@@ -148,11 +160,19 @@ export default function WalletsScreen({
           return;
         }
         if (input === "u" && wallets.length > 0) {
+          if (!isSoftwareWalletEntry(wallets[selectedIndex])) {
+            showMessage("Hardware wallet unlock is not implemented yet", "yellow");
+            return;
+          }
           setStep("unlock-passphrase");
           setTextInput("");
           return;
         }
         if (input === "x" && wallets.length > 0) {
+          if (!isSoftwareWalletEntry(wallets[selectedIndex])) {
+            showMessage("Hardware wallets do not use passphrase lock", "yellow");
+            return;
+          }
           lockWallet(wallets[selectedIndex].id);
           showMessage(`Locked "${wallets[selectedIndex].label}"`, "yellow");
           refreshList();
@@ -378,8 +398,8 @@ export default function WalletsScreen({
                       {w.isActive ? "active" : "      "}
                     </Text>
                     <Text dimColor> </Text>
-                    <Text color={isWalletUnlocked(w.id) ? "cyan" : "yellow"}>
-                      {isWalletUnlocked(w.id) ? "unlocked" : "locked"}
+                    <Text color={isSoftwareWalletEntry(w) ? (isWalletUnlocked(w.id) ? "cyan" : "yellow") : "magenta"}>
+                      {walletStatus(w)}
                     </Text>
                   </Box>
                 );
@@ -391,6 +411,11 @@ export default function WalletsScreen({
               [enter] switch  [u] unlock  [x] lock  [y] copy  [c] create  [i] import  [l] rename  [d] delete
             </Text>
           </Box>
+          {selectedWallet() && !isSoftwareWalletEntry(selectedWallet()!) && (
+            <Box marginTop={1}>
+              <Text dimColor>Hardware wallet support is not implemented yet.</Text>
+            </Box>
+          )}
         </Box>
       )}
 
@@ -544,7 +569,11 @@ export default function WalletsScreen({
           <Text color="yellow">
             Delete wallet &quot;{wallets[selectedIndex].label}&quot;?
           </Text>
-          <Text dimColor>The encrypted wallet file will be deleted from ~/.wui/keys.</Text>
+          <Text dimColor>
+            {isSoftwareWalletEntry(wallets[selectedIndex])
+              ? "The encrypted wallet file will be deleted from ~/.wui/keys."
+              : "Only the wallet entry will be removed from ~/.wui/wallets.json."}
+          </Text>
           <Box marginTop={1}>
             <Text dimColor>[y] yes  [any key] cancel</Text>
           </Box>

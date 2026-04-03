@@ -1,19 +1,16 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   pipe,
   createTransactionMessage,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
   appendTransactionMessageInstruction,
-  addSignersToTransactionMessage,
-  signTransactionMessageWithSigners,
-  getBase64EncodedWireTransaction,
 } from "@solana/kit";
 import { sendAndConfirmTransaction } from "../lib/confirm.js";
 import type { TransferRequest, TransferResult } from "../types/transfer.js";
+import type { WalletProvider } from "../wallet/provider.js";
 import { MIN_SOL_RESERVE_LAMPORTS } from "./constants.js";
 import { getAssociatedTokenAddress, accountExists, buildCreateAtaInstruction } from "./ata.js";
 import { getTokenProgramForMint } from "./token-program.js";
@@ -21,7 +18,7 @@ import { buildSolTransferInstruction, buildTokenTransferInstruction } from "./in
 
 export async function executeTransfer(
   request: TransferRequest,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   rpc: Rpc<SolanaRpcApi>,
   onStatus?: (status: string) => void,
 ): Promise<TransferResult> {
@@ -32,40 +29,38 @@ export async function executeTransfer(
 
     const baseMessage = pipe(
       createTransactionMessage({ version: 0 }),
-      (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+      (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
       (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
-      (msg) => addSignersToTransactionMessage([signer], msg),
     );
 
     let txMessage;
     if (request.isNative) {
-      const ix = buildSolTransferInstruction(signer.address, request.recipient, request.amount);
+      const ix = buildSolTransferInstruction(provider.publicKey, request.recipient, request.amount);
       txMessage = appendTransactionMessageInstruction(ix, baseMessage);
     } else {
       const tokenProgram = await getTokenProgramForMint(rpc, request.mint);
-      const sourceAta = await getAssociatedTokenAddress(signer.address, request.mint, tokenProgram);
+      const sourceAta = await getAssociatedTokenAddress(provider.publicKey, request.mint, tokenProgram);
       const destAta = await getAssociatedTokenAddress(request.recipient, request.mint, tokenProgram);
       const destAtaExists = await accountExists(rpc, destAta);
 
       if (!destAtaExists) {
         onStatus?.("Creating recipient token account...");
-        const createAtaIx = buildCreateAtaInstruction(signer.address, destAta, request.recipient, request.mint, tokenProgram);
-        const transferIx = buildTokenTransferInstruction(sourceAta, destAta, signer.address, request.mint, request.amount, request.decimals, tokenProgram);
+        const createAtaIx = buildCreateAtaInstruction(provider.publicKey, destAta, request.recipient, request.mint, tokenProgram);
+        const transferIx = buildTokenTransferInstruction(sourceAta, destAta, provider.publicKey, request.mint, request.amount, request.decimals, tokenProgram);
         txMessage = pipe(
           baseMessage,
           (msg) => appendTransactionMessageInstruction(createAtaIx, msg),
           (msg) => appendTransactionMessageInstruction(transferIx, msg),
         );
       } else {
-        const transferIx = buildTokenTransferInstruction(sourceAta, destAta, signer.address, request.mint, request.amount, request.decimals, tokenProgram);
+        const transferIx = buildTokenTransferInstruction(sourceAta, destAta, provider.publicKey, request.mint, request.amount, request.decimals, tokenProgram);
         txMessage = appendTransactionMessageInstruction(transferIx, baseMessage);
       }
     }
 
     currentStep = "signing transaction";
     onStatus?.("Signing transaction...");
-    const signedTx = await signTransactionMessageWithSigners(txMessage);
-    const encoded = getBase64EncodedWireTransaction(signedTx);
+    const encoded = await provider.signTransactionMessage(txMessage);
 
     currentStep = "sending transaction";
     onStatus?.("Broadcasting transaction...");

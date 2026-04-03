@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   generateKeyPairSigner,
   getAddressEncoder,
@@ -12,14 +11,12 @@ import {
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
   appendTransactionMessageInstruction,
-  addSignersToTransactionMessage,
-  signTransactionMessageWithSigners,
-  getBase64EncodedWireTransaction,
   AccountRole,
   getU8Encoder,
   getU64Encoder,
   getStructEncoder,
 } from "@solana/kit";
+import type { WalletProvider } from "../wallet/provider.js";
 import { ATA_PROGRAM, STAKE_POOL_PROGRAM, SYSTEM_PROGRAM, TOKEN_PROGRAM } from "./constants.js";
 import { sendAndConfirm } from "./confirm.js";
 
@@ -177,7 +174,7 @@ export async function fetchStakePoolInfo(
 
 export async function depositToStakePool(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   stakePoolAddress: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
@@ -192,7 +189,7 @@ export async function depositToStakePool(
     seeds: [encoder.encode(address(stakePoolAddress)), new TextEncoder().encode("withdraw")],
   });
 
-  const userLstAta = await getAssociatedTokenAddress(signer.address, poolMint);
+  const userLstAta = await getAssociatedTokenAddress(provider.publicKey, poolMint);
   const lstAtaExists = await accountExists(rpc, userLstAta);
 
   onStatus?.("Building transaction...");
@@ -209,7 +206,7 @@ export async function depositToStakePool(
       { address: address(stakePoolAddress), role: AccountRole.WRITABLE },
       { address: address(withdrawAuthority), role: AccountRole.READONLY },
       { address: address(reserveStake), role: AccountRole.WRITABLE },
-      { address: address(signer.address), role: AccountRole.WRITABLE_SIGNER },
+      { address: address(provider.publicKey), role: AccountRole.WRITABLE_SIGNER },
       { address: address(userLstAta), role: AccountRole.WRITABLE },
       { address: address(managerFeeAccount), role: AccountRole.WRITABLE },
       { address: address(userLstAta), role: AccountRole.WRITABLE },
@@ -222,14 +219,13 @@ export async function depositToStakePool(
 
   const baseMessage = pipe(
     createTransactionMessage({ version: 0 }),
-    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
     (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
-    (msg) => addSignersToTransactionMessage([signer], msg),
   );
 
   let txMessage;
   if (!lstAtaExists) {
-    const createAtaIx = buildCreateAtaInstruction(signer.address, userLstAta, signer.address, poolMint);
+    const createAtaIx = buildCreateAtaInstruction(provider.publicKey, userLstAta, provider.publicKey, poolMint);
     txMessage = pipe(
       baseMessage,
       (msg) => appendTransactionMessageInstruction(createAtaIx, msg),
@@ -240,8 +236,7 @@ export async function depositToStakePool(
   }
 
   onStatus?.("Signing transaction...");
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
-  const encoded = getBase64EncodedWireTransaction(signedTx);
+  const encoded = await provider.signTransactionMessage(txMessage);
 
   onStatus?.("Broadcasting transaction...");
   return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);
@@ -249,7 +244,7 @@ export async function depositToStakePool(
 
 export async function withdrawSolFromStakePool(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   stakePoolAddress: string,
   poolTokens: bigint,
   onStatus?: (status: string) => void,
@@ -257,7 +252,7 @@ export async function withdrawSolFromStakePool(
   onStatus?.("Fetching pool data...");
 
   const { reserveStake, poolMint, managerFeeAccount } = await fetchStakePoolInfo(rpc, stakePoolAddress);
-  const userLstAta = await getAssociatedTokenAddress(signer.address, poolMint);
+  const userLstAta = await getAssociatedTokenAddress(provider.publicKey, poolMint);
   const lstAtaExists = await accountExists(rpc, userLstAta);
   if (!lstAtaExists) {
     throw new Error("LST token account not found for this stake pool.");
@@ -278,7 +273,7 @@ export async function withdrawSolFromStakePool(
     ["poolTokens", getU64Encoder()],
   ] as const);
 
-  const approveIx = buildApproveInstruction(userLstAta, transferAuthority.address, signer.address, poolTokens);
+  const approveIx = buildApproveInstruction(userLstAta, transferAuthority.address, provider.publicKey, poolTokens);
   const withdrawSolIx = {
     programAddress: address(STAKE_POOL_PROGRAM),
     accounts: [
@@ -287,7 +282,7 @@ export async function withdrawSolFromStakePool(
       { address: address(transferAuthority.address), role: AccountRole.READONLY_SIGNER },
       { address: address(userLstAta), role: AccountRole.WRITABLE },
       { address: address(reserveStake), role: AccountRole.WRITABLE },
-      { address: address(signer.address), role: AccountRole.WRITABLE },
+      { address: address(provider.publicKey), role: AccountRole.WRITABLE },
       { address: address(managerFeeAccount), role: AccountRole.WRITABLE },
       { address: address(poolMint), role: AccountRole.WRITABLE },
       { address: address("SysvarC1ock11111111111111111111111111111111"), role: AccountRole.READONLY },
@@ -300,16 +295,14 @@ export async function withdrawSolFromStakePool(
 
   const txMessage = pipe(
     createTransactionMessage({ version: 0 }),
-    (msg) => setTransactionMessageFeePayer(address(signer.address), msg),
+    (msg) => setTransactionMessageFeePayer(address(provider.publicKey), msg),
     (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
     (msg) => appendTransactionMessageInstruction(approveIx, msg),
     (msg) => appendTransactionMessageInstruction(withdrawSolIx, msg),
-    (msg) => addSignersToTransactionMessage([signer, transferAuthority], msg),
   );
 
   onStatus?.("Signing transaction...");
-  const signedTx = await signTransactionMessageWithSigners(txMessage);
-  const encoded = getBase64EncodedWireTransaction(signedTx);
+  const encoded = await provider.signTransactionMessage(txMessage, [transferAuthority]);
 
   onStatus?.("Broadcasting transaction...");
   return sendAndConfirm(rpc, encoded, latestBlockhash.lastValidBlockHeight);

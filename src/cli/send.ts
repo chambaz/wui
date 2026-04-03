@@ -2,7 +2,7 @@ import { parseDecimalAmount } from "../lib/format.js";
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata } from "../pricing/index.js";
 import {
-  getActiveWalletSigner,
+  getActiveWalletProvider,
   unlockWallet,
   WalletLockedError,
 } from "../wallet/index.js";
@@ -33,9 +33,9 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
     throw new Error("Cannot send to yourself.");
   }
 
-  let signer;
+  let provider;
   try {
-    signer = await getActiveWalletSigner();
+    provider = await getActiveWalletProvider();
   } catch (error: unknown) {
     if (error instanceof WalletLockedError) {
       if (json) {
@@ -43,16 +43,16 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
           "Encrypted wallets are not supported with `wui send --json` because passphrase entry requires an interactive terminal.",
         );
       }
-      const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet \"${wallet.label}\": `);
+      const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet "${wallet.label}": `);
       await unlockWallet(wallet.id, passphrase);
-      signer = await getActiveWalletSigner();
+      provider = await getActiveWalletProvider();
     } else {
       throw error;
     }
   }
 
-  if (!signer) {
-    throw new Error("Could not load wallet signer.");
+  if (!provider) {
+    throw new Error("Could not load wallet provider.");
   }
 
   // Find the token in the wallet's balances.
@@ -115,7 +115,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
     console.log(`Sending ${displayAmount} ${symbol} to ${recipientArg}...`);
   }
 
-  const result = await executeTransfer(request, signer, rpc, json ? undefined : (s) => console.log(s));
+  const result = await executeTransfer(request, provider, rpc, json ? undefined : (s) => console.log(s));
 
   if (json) {
     printJson({

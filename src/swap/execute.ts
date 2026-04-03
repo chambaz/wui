@@ -1,32 +1,17 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
-  type Base64EncodedWireTransaction,
-  getTransactionDecoder,
-  getBase64EncodedWireTransaction,
-  signTransaction,
 } from "@solana/kit";
 import { sendAndConfirmTransaction } from "../lib/confirm.js";
 import type { SwapQuote, SwapResult } from "../types/swap.js";
+import type { WalletProvider } from "../wallet/provider.js";
 import { getSwapQuote } from "./quote.js";
 import { buildSwapTransaction } from "./build.js";
 import { resolveFeeAccount } from "./fees.js";
 
-async function signSwapTransaction(
-  base64Transaction: string,
-  signer: KeyPairSigner,
-): Promise<Base64EncodedWireTransaction> {
-  const decoder = getTransactionDecoder();
-  const txBytes = new Uint8Array(Buffer.from(base64Transaction, "base64"));
-  const transaction = decoder.decode(txBytes);
-  const signed = await signTransaction([signer.keyPair], transaction);
-  return getBase64EncodedWireTransaction(signed);
-}
-
 export async function executeSwap(
   quote: SwapQuote,
-  signer: KeyPairSigner,
+  provider: WalletProvider,
   rpc: Rpc<SolanaRpcApi>,
   apiKey: string,
   onStatus?: (status: string) => void,
@@ -52,11 +37,13 @@ export async function executeSwap(
 
     currentStep = "building transaction";
     onStatus?.("Building transaction...");
-    const swapResponse = await buildSwapTransaction(activeQuote, signer.address, apiKey, feeAccount);
+    const swapResponse = await buildSwapTransaction(activeQuote, provider.publicKey, apiKey, feeAccount);
 
     currentStep = "signing transaction";
     onStatus?.("Signing transaction...");
-    const signedBase64 = await signSwapTransaction(swapResponse.swapTransaction, signer);
+    const signedBase64 = await provider.signTransactionBytes(
+      new Uint8Array(Buffer.from(swapResponse.swapTransaction, "base64")),
+    );
 
     currentStep = "sending transaction";
     onStatus?.("Broadcasting transaction...");

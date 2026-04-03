@@ -21,7 +21,7 @@ import {
   saveCustomValidator,
 } from "../../staking/index.js";
 import { isValidSolanaAddress } from "../../transfer/index.js";
-import { getActiveWalletSigner, WalletLockedError } from "../../wallet/index.js";
+import { getActiveWalletProvider, WalletLockedError } from "../../wallet/index.js";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { CustomValidator, StakeAccountInfo, StakeProvider, StakeTarget } from "../../types/staking.js";
 
@@ -307,9 +307,9 @@ export default function StakingScreen({
     let succeeded = false;
 
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("Could not load wallet signer.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("Could not load wallet provider.");
       }
 
       const lamports = getStakeAmount();
@@ -319,7 +319,7 @@ export default function StakingScreen({
 
       if (stakeTarget.mode === "liquid") {
         const sig = await depositToStakePool(
-          rpc, signer,
+          rpc, provider,
           stakeTarget.provider.stakePoolAddress,
           lamports, setExecutingStatus,
         );
@@ -327,7 +327,7 @@ export default function StakingScreen({
         succeeded = true;
       } else {
         const sig = await createNativeStake(
-          rpc, signer,
+          rpc, provider,
           stakeTarget.validator.voteAccount,
           lamports, setExecutingStatus,
         );
@@ -355,22 +355,22 @@ export default function StakingScreen({
     setStep("executing");
     let succeeded = false;
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("Could not load wallet signer.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("Could not load wallet provider.");
       }
 
-      const provider = [...STAKE_PROVIDERS, ...customPools].find(
+      const stakeProvider = [...STAKE_PROVIDERS, ...customPools].find(
         (item) => item.lstMint === position.mint,
       );
-      if (!provider) {
+      if (!stakeProvider) {
         throw new Error("Could not resolve stake pool for this LST.");
       }
 
       const sig = await withdrawSolFromStakePool(
         rpc,
-        signer,
-        provider.stakePoolAddress,
+        provider,
+        stakeProvider.stakePoolAddress,
         poolTokens,
         setExecutingStatus,
       );
@@ -395,12 +395,12 @@ export default function StakingScreen({
     setStep("executing");
     let succeeded = false;
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("Could not load wallet signer.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("Could not load wallet provider.");
       }
 
-      const sig = await deactivateStake(rpc, signer, account.address, setExecutingStatus);
+      const sig = await deactivateStake(rpc, provider, account.address, setExecutingStatus);
       setResultSignature(sig);
       succeeded = true;
     } catch (err: unknown) {
@@ -420,12 +420,12 @@ export default function StakingScreen({
     setStep("executing");
     let succeeded = false;
     try {
-      const signer = await getActiveWalletSigner();
-      if (!signer) {
-        throw new Error("Could not load wallet signer.");
+      const provider = await getActiveWalletProvider();
+      if (!provider) {
+        throw new Error("Could not load wallet provider.");
       }
 
-      const sig = await withdrawStake(rpc, signer, account.address, account.lamports, setExecutingStatus);
+      const sig = await withdrawStake(rpc, provider, account.address, account.lamports, setExecutingStatus);
       setResultSignature(sig);
       succeeded = true;
     } catch (err: unknown) {

@@ -6,7 +6,16 @@ import {
   createKeyPairSignerFromPrivateKeyBytes,
   type KeyPairSigner,
 } from "@solana/kit";
-import type { WalletEntry, WalletStore } from "../types/wallet.js";
+import {
+  isHardwareWalletEntry,
+  isSoftwareWalletEntry,
+  type EncryptedSoftwareWalletEntry,
+  type HardwareWalletEntry,
+  type WalletEntry,
+  type WalletStore,
+} from "../types/wallet.js";
+import type { WalletProvider } from "./provider.js";
+import { createSoftwareWalletProvider } from "./providers/software.js";
 
 const DATA_DIR = join(homedir(), ".wui");
 const STORE_PATH = join(DATA_DIR, "wallets.json");
@@ -117,15 +126,35 @@ function normalizePath(path: string): string {
 }
 
 function isWalletEntry(entry: unknown): entry is WalletEntry {
+  return isEncryptedSoftwareWalletEntry(entry) || isHardwareWalletEntryRecord(entry);
+}
+
+function isEncryptedSoftwareWalletEntry(entry: unknown): entry is EncryptedSoftwareWalletEntry {
   return Boolean(
     entry &&
     typeof entry === "object" &&
-    typeof (entry as WalletEntry).id === "string" &&
-    typeof (entry as WalletEntry).label === "string" &&
-    typeof (entry as WalletEntry).publicKey === "string" &&
-    typeof (entry as WalletEntry).keyfilePath === "string" &&
-    typeof (entry as WalletEntry).isActive === "boolean" &&
-    (entry as WalletEntry).storageType === "encrypted",
+    typeof (entry as EncryptedSoftwareWalletEntry).id === "string" &&
+    typeof (entry as EncryptedSoftwareWalletEntry).label === "string" &&
+    typeof (entry as EncryptedSoftwareWalletEntry).publicKey === "string" &&
+    typeof (entry as EncryptedSoftwareWalletEntry).keyfilePath === "string" &&
+    typeof (entry as EncryptedSoftwareWalletEntry).isActive === "boolean" &&
+    ((entry as Partial<EncryptedSoftwareWalletEntry>).kind === "software" ||
+      typeof (entry as Partial<EncryptedSoftwareWalletEntry>).kind === "undefined") &&
+    (entry as EncryptedSoftwareWalletEntry).storageType === "encrypted",
+  );
+}
+
+function isHardwareWalletEntryRecord(entry: unknown): entry is HardwareWalletEntry {
+  return Boolean(
+    entry &&
+    typeof entry === "object" &&
+    typeof (entry as HardwareWalletEntry).id === "string" &&
+    typeof (entry as HardwareWalletEntry).label === "string" &&
+    typeof (entry as HardwareWalletEntry).publicKey === "string" &&
+    typeof (entry as HardwareWalletEntry).isActive === "boolean" &&
+    (entry as HardwareWalletEntry).kind === "hardware" &&
+    typeof (entry as HardwareWalletEntry).vendor === "string" &&
+    typeof (entry as HardwareWalletEntry).derivationPath === "string",
   );
 }
 
@@ -150,10 +179,15 @@ Run \`wui\` interactively to migrate existing wallets.`,
     );
   }
 
-  return {
-    ...entry,
-    keyfilePath: getKeyfilePath(entry.id),
-  };
+  if (isEncryptedSoftwareWalletEntry(entry)) {
+    return {
+      ...entry,
+      kind: "software",
+      keyfilePath: getKeyfilePath(entry.id),
+    };
+  }
+
+  return entry;
 }
 
 function readRawStore(): RawWalletStore {
@@ -214,7 +248,7 @@ function writeStore(store: WalletStore): void {
   const normalizedStore: WalletStore = {
     wallets: store.wallets.map((wallet) => ({
       ...wallet,
-      keyfilePath: getKeyfilePath(wallet.id),
+      ...(isSoftwareWalletEntry(wallet) ? { keyfilePath: getKeyfilePath(wallet.id) } : {}),
     })),
   };
 
@@ -492,7 +526,7 @@ async function createWalletEntry(
   keypairBytes: Uint8Array,
   label: string,
   passphrase: string,
-): Promise<WalletEntry> {
+): Promise<EncryptedSoftwareWalletEntry> {
   validateLabel(label);
   validatePassphrase(passphrase);
 
@@ -511,10 +545,11 @@ async function createWalletEntry(
   const vaultFile = createEncryptedWalletFile(keypairBytes, id, label, signer.address, passphrase);
   writeEncryptedWalletFile(vaultFile, keyfilePath);
 
-  const entry: WalletEntry = {
+  const entry: EncryptedSoftwareWalletEntry = {
     id,
     label,
     publicKey: signer.address,
+    kind: "software",
     keyfilePath,
     isActive: store.wallets.length === 0,
     storageType: "encrypted",
@@ -554,13 +589,18 @@ export function getActiveWalletEntry(): WalletEntry | null {
 }
 
 export function isWalletUnlocked(walletId: string): boolean {
-  return unlockedWallets.has(walletId);
+  const entry = readStore().wallets.find((wallet) => wallet.id === walletId);
+  return entry ? isSoftwareWalletEntry(entry) && unlockedWallets.has(walletId) : false;
 }
 
 export async function unlockWallet(walletId: string, passphrase: string): Promise<void> {
   validatePassphrase(passphrase);
 
   const entry = getWalletEntryById(walletId);
+  if (!isSoftwareWalletEntry(entry)) {
+    throw new Error(`Wallet "${entry.label}" does not support passphrase unlock.`);
+  }
+
   const file = readEncryptedWalletFile(entry.keyfilePath);
   const keypairBytes = decryptWalletFile(file, passphrase);
   const signer = await signerFromKeypairBytes(keypairBytes);
@@ -590,12 +630,7 @@ export function lockAllWallets(): void {
   }
 }
 
-export async function getActiveWalletSigner(): Promise<KeyPairSigner | null> {
-  const entry = getActiveWalletEntry();
-  if (!entry) {
-    return null;
-  }
-
+async function getUnlockedSoftwareSigner(entry: EncryptedSoftwareWalletEntry): Promise<KeyPairSigner> {
   const session = unlockedWallets.get(entry.id);
   if (!session) {
     throw new WalletLockedError(entry.id, entry.label);
@@ -605,7 +640,30 @@ export async function getActiveWalletSigner(): Promise<KeyPairSigner | null> {
   return session.signer;
 }
 
-export async function importWallet(keypairPath: string, label: string, passphrase: string): Promise<WalletEntry> {
+export async function getActiveWalletProvider(): Promise<WalletProvider | null> {
+  const entry = getActiveWalletEntry();
+  if (!entry) {
+    return null;
+  }
+
+  if (isSoftwareWalletEntry(entry)) {
+    const signer = await getUnlockedSoftwareSigner(entry);
+    return createSoftwareWalletProvider(entry, signer);
+  }
+
+  if (isHardwareWalletEntry(entry)) {
+    throw new Error(`Hardware wallet provider not implemented yet for vendor: ${entry.vendor}`);
+  }
+
+  const unsupportedEntry: never = entry;
+  throw new Error(`Unsupported wallet type: ${String(unsupportedEntry)}`);
+}
+
+export async function importWallet(
+  keypairPath: string,
+  label: string,
+  passphrase: string,
+): Promise<EncryptedSoftwareWalletEntry> {
   const absolutePath = normalizePath(keypairPath);
   if (!existsSync(absolutePath)) {
     throw new Error(`Keypair file not found: ${absolutePath}`);
@@ -619,7 +677,7 @@ export async function importWallet(keypairPath: string, label: string, passphras
   }
 }
 
-export async function createWallet(label: string, passphrase: string): Promise<WalletEntry> {
+export async function createWallet(label: string, passphrase: string): Promise<EncryptedSoftwareWalletEntry> {
   const normalizedLabel = label.trim();
   const seed = randomBytes(32);
   const signer = await createKeyPairSignerFromPrivateKeyBytes(seed);
@@ -694,6 +752,7 @@ export async function migrateLegacyWallets(passphrase: string): Promise<void> {
           id,
           label: legacyEntry.label,
           publicKey: legacyEntry.publicKey,
+          kind: "software",
           keyfilePath,
           isActive: legacyEntry.isActive,
           storageType: "encrypted",
@@ -771,9 +830,11 @@ export function labelWallet(currentLabel: string, newLabel: string): WalletEntry
   wallet.label = normalizedLabel;
   writeStore(store);
 
-  const file = readEncryptedWalletFile(wallet.keyfilePath);
-  file.label = normalizedLabel;
-  writeEncryptedWalletFile(file, wallet.keyfilePath);
+  if (isSoftwareWalletEntry(wallet)) {
+    const file = readEncryptedWalletFile(wallet.keyfilePath);
+    file.label = normalizedLabel;
+    writeEncryptedWalletFile(file, wallet.keyfilePath);
+  }
 
   return wallet;
 }
@@ -788,26 +849,27 @@ export function deleteWallet(label: string): void {
 
   const [wallet] = store.wallets.splice(index, 1);
   lockWallet(wallet.id);
-  const keyfileExisted = existsSync(wallet.keyfilePath);
-  const keyfileContents = keyfileExisted ? readFileSync(wallet.keyfilePath, "utf-8") : null;
+  const keyfilePath = isSoftwareWalletEntry(wallet) ? wallet.keyfilePath : null;
+  const keyfileExisted = keyfilePath ? existsSync(keyfilePath) : false;
+  const keyfileContents = keyfileExisted && keyfilePath ? readFileSync(keyfilePath, "utf-8") : null;
 
   if (wallet.isActive && store.wallets.length > 0) {
     store.wallets[0].isActive = true;
   }
 
-  if (keyfileExisted) {
-    unlinkSync(wallet.keyfilePath);
+  if (keyfileExisted && keyfilePath) {
+    unlinkSync(keyfilePath);
   }
 
   try {
     writeStore(store);
   } catch (error: unknown) {
-    if (keyfileContents !== null) {
-      writeFileSync(wallet.keyfilePath, keyfileContents, {
+    if (keyfileContents !== null && keyfilePath) {
+      writeFileSync(keyfilePath, keyfileContents, {
         encoding: "utf-8",
         mode: FILE_MODE,
       });
-      chmodSync(wallet.keyfilePath, FILE_MODE);
+      chmodSync(keyfilePath, FILE_MODE);
     }
     throw error;
   }
