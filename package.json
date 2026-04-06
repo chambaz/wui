@@ -25,13 +25,17 @@
   "license": "MIT",
   "author": "Adam Chambers <adammchambers@gmail.com>",
   "dependencies": {
+    "@ledgerhq/device-management-kit": "^1.2.0",
+    "@ledgerhq/device-signer-kit-solana": "^1.7.1",
+    "@ledgerhq/device-transport-kit-node-hid": "^1.0.0",
     "@solana-program/stake": "^0.6.0",
     "@solana-program/system": "^0.12.0",
     "@solana/kit": "^6.3.1",
     "dotenv": "^17.3.1",
     "ink": "^6.8.0",
     "ink-link": "^5.0.0",
-    "react": "^19.2.4"
+    "react": "^19.2.4",
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
@@ -42,7 +46,12 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "bigint-buffer",
+      "bufferutil",
+      "esbuild",
+      "node-hid",
+      "usb",
+      "utf-8-validate"
     ]
   }
 }

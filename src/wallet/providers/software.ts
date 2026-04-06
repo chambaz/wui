@@ -14,6 +14,7 @@ import type {
 } from "../provider.js";
 
 const SOFTWARE_WALLET_CAPABILITIES: WalletCapabilities = {
+  supportsTransactionSigning: true,
   supportsAddressVerification: false,
   supportsMessageSigning: false,
   supportsBlindSigning: true,

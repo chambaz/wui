@@ -24,6 +24,10 @@ export async function executeTransfer(
 ): Promise<TransferResult> {
   let currentStep = "building transaction";
   try {
+    if (!provider.capabilities.supportsTransactionSigning) {
+      throw new Error(`${provider.label} does not support transaction signing in wui yet.`);
+    }
+
     onStatus?.("Building transaction...");
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 

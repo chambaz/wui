@@ -184,6 +184,7 @@ export default function App({
         >
           <WalletsScreen
             isActive={screen === "wallets"}
+            rpc={rpc}
             onWalletChange={refreshWallet}
             onCapturingInputChange={setWalletsCapturingInput}
           />

@@ -154,7 +154,7 @@ function isHardwareWalletEntryRecord(entry: unknown): entry is HardwareWalletEnt
     typeof (entry as HardwareWalletEntry).isActive === "boolean" &&
     (entry as HardwareWalletEntry).kind === "hardware" &&
     typeof (entry as HardwareWalletEntry).vendor === "string" &&
-    typeof (entry as HardwareWalletEntry).derivationPath === "string",
+    typeof (entry as HardwareWalletEntry).accountIndex === "number",
   );
 }
 
@@ -652,6 +652,11 @@ export async function getActiveWalletProvider(): Promise<WalletProvider | null> 
   }
 
   if (isHardwareWalletEntry(entry)) {
+    if (entry.vendor === "ledger") {
+      const { createLedgerWalletProvider } = await import("./providers/ledger.js");
+      return createLedgerWalletProvider(entry);
+    }
+
     throw new Error(`Hardware wallet provider not implemented yet for vendor: ${entry.vendor}`);
   }
 
@@ -692,6 +697,42 @@ export async function createWallet(label: string, passphrase: string): Promise<E
   } finally {
     fullKeypair.fill(0);
   }
+}
+
+export function addLedgerWallet(
+  wallet: Omit<HardwareWalletEntry, "id" | "isActive" | "kind" | "vendor">,
+): HardwareWalletEntry {
+  const store = readStore();
+  const normalizedLabel = wallet.label.trim();
+  validateLabel(normalizedLabel);
+
+  if (!Number.isInteger(wallet.accountIndex) || wallet.accountIndex < 0) {
+    throw new Error("Ledger account index must be a non-negative integer.");
+  }
+
+  if (store.wallets.some((entry) => entry.label === normalizedLabel)) {
+    throw new Error(`Label already in use: ${normalizedLabel}`);
+  }
+
+  if (store.wallets.some((entry) => entry.publicKey === wallet.publicKey)) {
+    throw new Error(`Wallet already exists for address: ${wallet.publicKey}`);
+  }
+
+  const entry: HardwareWalletEntry = {
+    id: randomUUID(),
+    label: normalizedLabel,
+    publicKey: wallet.publicKey,
+    kind: "hardware",
+    vendor: "ledger",
+    accountIndex: wallet.accountIndex,
+    deviceModel: wallet.deviceModel,
+    deviceName: wallet.deviceName,
+    isActive: store.wallets.length === 0,
+  };
+
+  store.wallets.push(entry);
+  writeStore(store);
+  return entry;
 }
 
 export async function migrateLegacyWallets(passphrase: string): Promise<void> {

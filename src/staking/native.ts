@@ -28,6 +28,10 @@ export async function createNativeStake(
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  if (!provider.capabilities.supportsTransactionSigning) {
+    throw new Error(`${provider.label} does not support staking in wui yet.`);
+  }
+
   const signer = await provider.getTransactionSigner();
   if (!signer) {
     throw new Error("Wallet does not expose a transaction signer for native staking.");
@@ -80,6 +84,10 @@ export async function deactivateStake(
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  if (!provider.capabilities.supportsTransactionSigning) {
+    throw new Error(`${provider.label} does not support staking in wui yet.`);
+  }
+
   const signer = await provider.getTransactionSigner();
   if (!signer) {
     throw new Error("Wallet does not expose a transaction signer for stake deactivation.");
@@ -109,6 +117,10 @@ export async function withdrawStake(
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Building transaction...");
+  if (!provider.capabilities.supportsTransactionSigning) {
+    throw new Error(`${provider.label} does not support staking in wui yet.`);
+  }
+
   const signer = await provider.getTransactionSigner();
   if (!signer) {
     throw new Error("Wallet does not expose a transaction signer for stake withdrawal.");

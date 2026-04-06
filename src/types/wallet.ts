@@ -15,7 +15,7 @@ export interface EncryptedSoftwareWalletEntry extends BaseWalletEntry {
 export interface HardwareWalletEntry extends BaseWalletEntry {
   kind: "hardware";
   vendor: string;
-  derivationPath: string;
+  accountIndex: number;
   deviceModel?: string;
   deviceName?: string;
 }

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
+import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress } from "../../lib/format.js";
+import { formatBalance, truncateAddress } from "../../lib/format.js";
 import { isSoftwareWalletEntry, type WalletEntry } from "../../types/wallet.js";
+import type { LedgerAccountCandidate } from "../../ledger/types.js";
 import {
+  addLedgerWallet,
   listWallets,
   switchWallet,
   createWallet,
@@ -25,17 +28,22 @@ type WalletStep =
   | "import-passphrase"
   | "import-passphrase-confirm"
   | "unlock-passphrase"
+  | "ledger-label"
+  | "ledger-discovering"
+  | "ledger-select-account"
   | "rename"
   | "confirm-delete";
 
 interface WalletsScreenProps {
   isActive: boolean;
+  rpc: Rpc<SolanaRpcApi>;
   onWalletChange: () => void;
   onCapturingInputChange: (capturing: boolean) => void;
 }
 
 export default function WalletsScreen({
   isActive,
+  rpc,
   onWalletChange,
   onCapturingInputChange,
 }: WalletsScreenProps) {
@@ -46,6 +54,9 @@ export default function WalletsScreen({
   const [importLabel, setImportLabel] = useState("");
   const [importPath, setImportPath] = useState("");
   const [pendingPassphrase, setPendingPassphrase] = useState("");
+  const [ledgerAccounts, setLedgerAccounts] = useState<LedgerAccountCandidate[]>([]);
+  const [ledgerAccountIndex, setLedgerAccountIndex] = useState(0);
+  const [ledgerStatus, setLedgerStatus] = useState("");
   const [message, setMessage] = useState<{ text: string; color: string } | null>(null);
   const operationInFlight = useRef(false);
 
@@ -85,6 +96,9 @@ export default function WalletsScreen({
     setImportLabel("");
     setImportPath("");
     setPendingPassphrase("");
+    setLedgerAccounts([]);
+    setLedgerAccountIndex(0);
+    setLedgerStatus("");
     refreshList();
   }
 
@@ -98,6 +112,15 @@ export default function WalletsScreen({
     );
   }
 
+  function acceptsTextInput(currentStep: WalletStep): boolean {
+    return ![
+      "list",
+      "confirm-delete",
+      "ledger-discovering",
+      "ledger-select-account",
+    ].includes(currentStep);
+  }
+
   function selectedWallet(): WalletEntry | null {
     return wallets[selectedIndex] ?? null;
   }
@@ -108,6 +131,84 @@ export default function WalletsScreen({
     }
 
     return isWalletUnlocked(wallet.id) ? "unlocked" : "locked";
+  }
+
+  async function startLedgerDiscovery(label = importLabel) {
+    operationInFlight.current = true;
+    setLedgerAccounts([]);
+    setLedgerAccountIndex(0);
+    setLedgerStatus("Searching for Ledger accounts...");
+    setStep("ledger-discovering");
+
+    try {
+      const { discoverLedgerAccounts } = await import("../../ledger/accounts.js");
+      const accounts = await discoverLedgerAccounts({
+        rpc,
+        onStatus: setLedgerStatus,
+      });
+
+      if (!operationInFlight.current) {
+        return;
+      }
+
+      if (accounts.length === 0) {
+        throw new Error("No Ledger accounts found.");
+      }
+
+      setLedgerAccounts(accounts);
+      setLedgerAccountIndex(0);
+      setLedgerStatus("Select a Ledger account to add.");
+      setStep("ledger-select-account");
+    } catch (err: unknown) {
+      if (!operationInFlight.current) {
+        return;
+      }
+
+      showMessage(err instanceof Error ? err.message : "Failed to discover Ledger accounts", "red");
+      setStep("ledger-label");
+      setTextInput(label);
+    } finally {
+      operationInFlight.current = false;
+    }
+  }
+
+  async function addSelectedLedgerAccount() {
+    const selectedAccount = ledgerAccounts[ledgerAccountIndex];
+    if (!selectedAccount) {
+      return;
+    }
+
+    operationInFlight.current = true;
+    setLedgerStatus("Verify the address on your Ledger...");
+    setStep("ledger-discovering");
+
+    try {
+      const { verifyLedgerAddress } = await import("../../ledger/accounts.js");
+      await verifyLedgerAddress(selectedAccount.accountIndex, selectedAccount.publicKey, setLedgerStatus);
+      if (!operationInFlight.current) {
+        return;
+      }
+
+      addLedgerWallet({
+        label: importLabel,
+        publicKey: selectedAccount.publicKey,
+        accountIndex: selectedAccount.accountIndex,
+        deviceModel: selectedAccount.device.modelId,
+        deviceName: selectedAccount.device.name,
+      });
+      onWalletChange();
+      showMessage(`Added Ledger wallet "${importLabel}"`, "green");
+      resetToList();
+    } catch (err: unknown) {
+      if (!operationInFlight.current) {
+        return;
+      }
+
+      showMessage(err instanceof Error ? err.message : "Failed to add Ledger wallet", "red");
+      setStep("ledger-select-account");
+    } finally {
+      operationInFlight.current = false;
+    }
   }
 
   useInput(
@@ -145,6 +246,11 @@ export default function WalletsScreen({
         // Import.
         if (input === "i") {
           setStep("import-label");
+          setTextInput("");
+          return;
+        }
+        if (input === "h") {
+          setStep("ledger-label");
           setTextInput("");
           return;
         }
@@ -188,6 +294,39 @@ export default function WalletsScreen({
         return;
       }
 
+      if (step === "ledger-select-account") {
+        if (key.upArrow && ledgerAccounts.length > 0) {
+          setLedgerAccountIndex((index) => Math.max(0, index - 1));
+          return;
+        }
+
+        if (key.downArrow && ledgerAccounts.length > 0) {
+          setLedgerAccountIndex((index) => Math.min(ledgerAccounts.length - 1, index + 1));
+          return;
+        }
+
+        if (key.return) {
+          void addSelectedLedgerAccount();
+          return;
+        }
+
+        if (input === "y" && ledgerAccounts.length > 0) {
+          if (copyToClipboard(ledgerAccounts[ledgerAccountIndex].publicKey)) {
+            showMessage("Address copied", "green");
+          }
+          return;
+        }
+
+        if (key.escape) {
+          operationInFlight.current = false;
+          setStep("ledger-label");
+          setTextInput(importLabel);
+          return;
+        }
+
+        return;
+      }
+
       // --- Confirm delete ---
       if (step === "confirm-delete") {
         if (input === "y" || input === "Y") {
@@ -208,6 +347,11 @@ export default function WalletsScreen({
 
       // --- Text input steps ---
       if (key.escape) {
+        if (operationInFlight.current) {
+          showMessage("Wait for the current wallet operation to finish.", "yellow");
+          return;
+        }
+
         operationInFlight.current = false;
         resetToList();
         return;
@@ -224,7 +368,7 @@ export default function WalletsScreen({
       }
 
       // Printable characters (supports paste).
-      if (input && !key.ctrl && !key.meta) {
+      if (acceptsTextInput(step) && input && !key.ctrl && !key.meta) {
         setTextInput((v) => v + input);
       }
     },
@@ -240,6 +384,13 @@ export default function WalletsScreen({
       setImportLabel(value);
       setTextInput("");
       setStep("create-passphrase");
+      return;
+    }
+
+    if (step === "ledger-label") {
+      setImportLabel(value);
+      setTextInput("");
+      void startLedgerDiscovery(value);
       return;
     }
 
@@ -371,7 +522,7 @@ export default function WalletsScreen({
       {step === "list" && (
         <Box flexDirection="column" marginTop={1}>
           {wallets.length === 0 ? (
-            <Text dimColor>No wallets configured. Press [c] to create or [i] to import.</Text>
+              <Text dimColor>No wallets configured. Press [c] to create, [i] to import, or [h] to add Ledger.</Text>
           ) : (
             <>
               {/* Header */}
@@ -409,13 +560,67 @@ export default function WalletsScreen({
           <Box marginTop={1}>
             <Text dimColor>
               [enter] switch  [u] unlock  [x] lock  [y] copy  [c] create  [i] import  [l] rename  [d] delete
+              {"  "}[h] add-ledger
             </Text>
           </Box>
-          {selectedWallet() && !isSoftwareWalletEntry(selectedWallet()!) && (
-            <Box marginTop={1}>
-              <Text dimColor>Hardware wallet support is not implemented yet.</Text>
-            </Box>
-          )}
+        </Box>
+      )}
+
+      {step === "ledger-label" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Label for Ledger wallet: </Text>
+            <Text>{textInput}</Text>
+            <Text dimColor>_</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[enter] next  [esc] cancel</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "ledger-discovering" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="cyan">Ledger</Text>
+          <Box marginTop={1}>
+            <Text>{ledgerStatus || "Waiting for Ledger..."}</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>Ledger requests cannot be cancelled once started.</Text>
+          </Box>
+        </Box>
+      )}
+
+      {step === "ledger-select-account" && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text dimColor>Label: </Text>
+            <Text color="cyan">{importLabel}</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>Select an account. Press [enter] to verify on device and save.</Text>
+          </Box>
+          <Box flexDirection="column" marginTop={1}>
+            {ledgerAccounts.map((account, index) => {
+              const isSelected = index === ledgerAccountIndex;
+              const indicator = isSelected ? "> " : "  ";
+              const balanceLabel = account.balanceSol === null
+                ? "-"
+                : formatBalance(account.balanceSol, 9).padEnd(10);
+
+              return (
+                <Text key={`${account.accountIndex}-${account.publicKey}`} color={isSelected ? "cyan" : undefined} bold={isSelected}>
+                  {indicator}
+                  {`account ${String(account.accountIndex).padEnd(2)}`.padEnd(12)}
+                  {truncateAddress(account.publicKey).padEnd(14)}
+                  {balanceLabel}
+                </Text>
+              );
+            })}
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>[up/down] select  [enter] verify+save  [y] copy  [esc] back</Text>
+          </Box>
         </Box>
       )}
 

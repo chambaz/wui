@@ -12,6 +12,7 @@ export type TransactionMessageForSigning =
 export type AdditionalTransactionSigner = KeyPairSigner;
 
 export interface WalletCapabilities {
+  supportsTransactionSigning: boolean;
   supportsAddressVerification: boolean;
   supportsMessageSigning: boolean;
   supportsBlindSigning: boolean;
@@ -27,6 +28,7 @@ export interface WalletProvider {
   kind: WalletEntry["kind"];
   capabilities: WalletCapabilities;
   ensureReady(): Promise<void>;
+  verifyAddressOnDevice?(): Promise<void>;
   getTransactionSigner(): Promise<AdditionalTransactionSigner | null>;
   signTransactionMessage<TTransactionMessage extends TransactionMessageForSigning>(
     transactionMessage: TTransactionMessage,

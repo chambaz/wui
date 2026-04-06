@@ -180,6 +180,9 @@ export async function depositToStakePool(
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Fetching pool data...");
+  if (!provider.capabilities.supportsTransactionSigning) {
+    throw new Error(`${provider.label} does not support staking in wui yet.`);
+  }
 
   const { reserveStake, poolMint, managerFeeAccount } = await fetchStakePoolInfo(rpc, stakePoolAddress);
 
@@ -250,6 +253,9 @@ export async function withdrawSolFromStakePool(
   onStatus?: (status: string) => void,
 ): Promise<string> {
   onStatus?.("Fetching pool data...");
+  if (!provider.capabilities.supportsTransactionSigning) {
+    throw new Error(`${provider.label} does not support staking in wui yet.`);
+  }
 
   const { reserveStake, poolMint, managerFeeAccount } = await fetchStakePoolInfo(rpc, stakePoolAddress);
   const userLstAta = await getAssociatedTokenAddress(provider.publicKey, poolMint);

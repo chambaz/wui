@@ -18,6 +18,10 @@ export async function executeSwap(
 ): Promise<SwapResult> {
   let currentStep = "resolving fee account";
   try {
+    if (!provider.capabilities.supportsTransactionSigning) {
+      throw new Error(`${provider.label} does not support transaction signing in wui yet.`);
+    }
+
     const feeAccount = await resolveFeeAccount(rpc, quote.outputMint);
 
     let activeQuote = quote;
