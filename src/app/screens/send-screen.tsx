@@ -14,8 +14,8 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata } from "../../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../../transfer/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
-import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
+import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo, getAssetSymbol } from "../../lib/format.js";
+import type { SelectedAssetRef, TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { TransferResult } from "../../types/transfer.js";
 
 const SOLSCAN_TX_URL = "https://solscan.io/tx/";
@@ -35,9 +35,9 @@ interface SendScreenProps {
   jupiterApiKey: string;
   isActive: boolean;
   onCapturingInputChange: (capturing: boolean) => void;
-  /** Pre-selected mint from portfolio screen. */
-  preSelectedMint: string | null;
-  onPreSelectedMintConsumed: () => void;
+  /** Pre-selected asset from portfolio screen. */
+  preSelectedAsset: SelectedAssetRef | null;
+  onPreSelectedAssetConsumed: () => void;
   /** Increment to trigger a balances refresh from outside the component. */
   refreshKey: number;
   /** Called when a transfer completes successfully. */
@@ -50,8 +50,8 @@ export default function SendScreen({
   jupiterApiKey,
   isActive,
   onCapturingInputChange,
-  preSelectedMint,
-  onPreSelectedMintConsumed,
+  preSelectedAsset,
+  onPreSelectedAssetConsumed,
   refreshKey,
   onTransactionComplete,
 }: SendScreenProps) {
@@ -92,7 +92,7 @@ export default function SendScreen({
     setLoadingBalances(true);
       try {
         const bals = await fetchAllBalances(rpc, walletAddress);
-        const mints = bals.map((b) => b.mint);
+        const mints = [...new Set(bals.map((b) => b.mint))];
         const meta = await fetchTokenMetadata(mints, jupiterApiKey);
         setBalances(bals);
         setMetadata(meta);
@@ -114,18 +114,17 @@ export default function SendScreen({
     }
   }, [step, balances.length, loadingBalances, error, walletAddress, loadBalances]);
 
-  // Handle pre-selected mint from portfolio.
+  // Handle pre-selected asset from portfolio.
   useEffect(() => {
-    if (preSelectedMint && balances.length > 0 && step === "select-token") {
-      const token = balances.find((b) => b.mint === preSelectedMint);
+    if (preSelectedAsset && balances.length > 0 && step === "select-token") {
+      const token = balances.find((b) => b.id === preSelectedAsset.id);
       if (token) {
         setSourceToken(token);
         setStep("enter-recipient");
       }
-      // Always consume — don't let a stale mint hang around.
-      onPreSelectedMintConsumed();
+      onPreSelectedAssetConsumed();
     }
-  }, [preSelectedMint, balances, step, onPreSelectedMintConsumed]);
+  }, [preSelectedAsset, balances, step, onPreSelectedAssetConsumed]);
 
   // External refresh trigger (e.g. after a swap, transfer, or stake).
   useEffect(() => {
@@ -135,8 +134,12 @@ export default function SendScreen({
   }, [isActive, refreshKey, step, loadBalances]);
 
   /** Get symbol for a mint. */
-  function mintSymbol(mint: string): string {
-    return metadata.get(mint)?.symbol ?? truncateAddress(mint);
+  function assetSymbol(token: TokenBalance): string {
+    return getAssetSymbol(
+      token.assetKind,
+      token.mint,
+      metadata.get(token.mint)?.symbol ?? null,
+    );
   }
 
   function previewAmount(): string {
@@ -214,12 +217,13 @@ export default function SendScreen({
       setStep("executing");
       setSendStatus("Preparing...");
 
-      const result = await executeTransfer(
-        {
-          mint: sourceToken.mint,
-          recipient: recipientInput,
-          amount: rawAmount,
-          decimals: sourceToken.decimals,
+        const result = await executeTransfer(
+          {
+            mint: sourceToken.mint,
+            sourceAccountAddress: sourceToken.accountAddress,
+            recipient: recipientInput,
+            amount: rawAmount,
+            decimals: sourceToken.decimals,
           isNative: sourceToken.isNative,
         },
         signer,
@@ -479,9 +483,9 @@ export default function SendScreen({
           )}
           {balances.map((b, i) => {
             const isSelected = i === selectedIndex;
-            const symbol = mintSymbol(b.mint);
+            const symbol = assetSymbol(b);
             return (
-              <Box key={b.mint}>
+              <Box key={b.id}>
                 <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
                   {isSelected ? "> " : "  "}
                   {symbol.padEnd(10)}
@@ -503,7 +507,7 @@ export default function SendScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>Token: </Text>
-            <Text color="cyan">{mintSymbol(sourceToken.mint)}</Text>
+            <Text color="cyan">{assetSymbol(sourceToken)}</Text>
           </Box>
           <Box marginTop={1}>
             <Text dimColor>Recipient address: </Text>
@@ -521,7 +525,7 @@ export default function SendScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>Token: </Text>
-            <Text color="cyan">{mintSymbol(sourceToken.mint)}</Text>
+            <Text color="cyan">{assetSymbol(sourceToken)}</Text>
           </Box>
           <Box>
             <Text dimColor>To: </Text>
@@ -531,7 +535,7 @@ export default function SendScreen({
             <Text dimColor>Available: </Text>
             <Text>
               {sourceToken.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })}
-              {" "}{mintSymbol(sourceToken.mint)}
+              {" "}{assetSymbol(sourceToken)}
             </Text>
           </Box>
           <Box marginTop={1}>
@@ -552,14 +556,11 @@ export default function SendScreen({
           <Box marginTop={1} flexDirection="column">
             <Box>
               <Text dimColor>{"Token:     "}</Text>
-              <Text>{mintSymbol(sourceToken.mint)}</Text>
+                <Text>{assetSymbol(sourceToken)}</Text>
             </Box>
             <Box>
               <Text dimColor>{"Amount:    "}</Text>
-              <Text color="green">
-                {previewAmount()}
-                {" "}{mintSymbol(sourceToken.mint)}
-              </Text>
+                <Text color="green">{previewAmount()} {assetSymbol(sourceToken)}</Text>
             </Box>
             <Box>
               <Text dimColor>{"To:        "}</Text>
@@ -604,7 +605,7 @@ export default function SendScreen({
                   <Text dimColor>{"Sent:     "}</Text>
                   <Text>
                     {formatAmount(String(sendResult.amount), sendResult.decimals)}{" "}
-                    {mintSymbol(sendResult.mint)}
+                    {sourceToken ? assetSymbol(sourceToken) : truncateAddress(sendResult.mint)}
                   </Text>
                 </Box>
                 <Box>

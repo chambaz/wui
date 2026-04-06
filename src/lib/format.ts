@@ -1,9 +1,31 @@
+import type { AssetKind } from "../types/portfolio.js";
+
 export const NATIVE_SOL_MINT = "So11111111111111111111111111111111111111112";
 export const JUPITER_BASE_URL = "https://api.jup.ag";
 
 export function truncateAddress(addr: string): string {
   if (addr.length <= 11) return addr;
   return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+}
+
+export function getAssetSymbol(
+  assetKind: AssetKind,
+  mint: string,
+  fallback: string | null = null,
+): string {
+  if (assetKind === "native-sol") return "SOL";
+  if (assetKind === "wrapped-sol") return "Wrapped SOL";
+  return fallback ?? truncateAddress(mint);
+}
+
+export function getAssetName(
+  assetKind: AssetKind,
+  mint: string,
+  fallback: string | null = null,
+): string {
+  if (assetKind === "native-sol") return "Solana";
+  if (assetKind === "wrapped-sol") return "Wrapped SOL";
+  return fallback ?? truncateAddress(mint);
 }
 
 export function formatNumber(n: number, decimals: number): string {

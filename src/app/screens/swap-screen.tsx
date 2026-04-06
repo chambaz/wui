@@ -14,8 +14,8 @@ import { fetchAllBalances } from "../../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { DEFAULT_SLIPPAGE_PCT, getSwapQuote, executeSwap } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
-import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo } from "../../lib/format.js";
-import type { TokenBalance, TokenMetadata } from "../../types/portfolio.js";
+import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo, getAssetSymbol } from "../../lib/format.js";
+import type { SelectedAssetRef, TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
 
 const SOLSCAN_TX_URL = "https://solscan.io/tx/";
@@ -36,9 +36,9 @@ interface SwapScreenProps {
   jupiterApiKey: string;
   isActive: boolean;
   onCapturingInputChange: (capturing: boolean) => void;
-  /** Pre-selected mint from portfolio screen. */
-  preSelectedMint: string | null;
-  onPreSelectedMintConsumed: () => void;
+  /** Pre-selected asset from portfolio screen. */
+  preSelectedAsset: SelectedAssetRef | null;
+  onPreSelectedAssetConsumed: () => void;
   /** Increment to trigger a balances refresh from outside the component. */
   refreshKey: number;
   /** Called when a swap completes successfully. */
@@ -51,8 +51,8 @@ export default function SwapScreen({
   jupiterApiKey,
   isActive,
   onCapturingInputChange,
-  preSelectedMint,
-  onPreSelectedMintConsumed,
+  preSelectedAsset,
+  onPreSelectedAssetConsumed,
   refreshKey,
   onTransactionComplete,
 }: SwapScreenProps) {
@@ -104,7 +104,7 @@ export default function SwapScreen({
     setLoadingBalances(true);
       try {
         const bals = await fetchAllBalances(rpc, walletAddress);
-        const mints = bals.map((b) => b.mint);
+        const mints = [...new Set(bals.map((b) => b.mint))];
         const meta = await fetchTokenMetadata(mints, jupiterApiKey);
         setBalances(bals);
         setMetadata(meta);
@@ -126,17 +126,25 @@ export default function SwapScreen({
     }
   }, [step, balances.length, loadingBalances, error, walletAddress, loadBalances]);
 
-  // Handle pre-selected mint from portfolio.
+  // Handle pre-selected asset from portfolio.
   useEffect(() => {
-    if (preSelectedMint && balances.length > 0 && step === "select-source") {
-      const token = balances.find((b) => b.mint === preSelectedMint);
+    if (preSelectedAsset && balances.length > 0 && step === "select-source") {
+      const token = balances.find((b) => b.id === preSelectedAsset.id);
       if (token) {
         setSourceToken(token);
         setStep("select-dest");
       }
-      onPreSelectedMintConsumed();
+      onPreSelectedAssetConsumed();
     }
-  }, [preSelectedMint, balances, step, onPreSelectedMintConsumed]);
+  }, [preSelectedAsset, balances, step, onPreSelectedAssetConsumed]);
+
+  function assetSymbol(token: TokenBalance): string {
+    return getAssetSymbol(
+      token.assetKind,
+      token.mint,
+      metadata.get(token.mint)?.symbol ?? null,
+    );
+  }
 
   // External refresh trigger (e.g. after a swap, transfer, or stake).
   useEffect(() => {
@@ -560,10 +568,9 @@ export default function SwapScreen({
           )}
           {balances.map((b, i) => {
             const isSelected = i === selectedIndex;
-            const meta = metadata.get(b.mint);
-            const symbol = meta?.symbol ?? truncateAddress(b.mint);
+            const symbol = assetSymbol(b);
             return (
-              <Box key={b.mint}>
+              <Box key={b.id}>
                 <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
                   {isSelected ? "> " : "  "}
                   {symbol.padEnd(10)}
@@ -585,9 +592,7 @@ export default function SwapScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>From: </Text>
-            <Text color="cyan">
-              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
-            </Text>
+            <Text color="cyan">{assetSymbol(sourceToken!)}</Text>
           </Box>
           <Box marginTop={1}>
             <Text dimColor>Search destination token: </Text>
@@ -626,9 +631,7 @@ export default function SwapScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>From: </Text>
-            <Text color="cyan">
-              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
-            </Text>
+            <Text color="cyan">{assetSymbol(sourceToken!)}</Text>
           </Box>
           <Box>
             <Text dimColor>To: </Text>
@@ -641,7 +644,7 @@ export default function SwapScreen({
             <Text>
               {sourceToken!.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })}
               {" "}
-              {metadata.get(sourceToken!.mint)?.symbol ?? ""}
+              {assetSymbol(sourceToken!)}
             </Text>
           </Box>
           <Box marginTop={1}>
@@ -660,9 +663,7 @@ export default function SwapScreen({
         <Box flexDirection="column" marginTop={1}>
           <Box>
             <Text dimColor>From: </Text>
-            <Text color="cyan">
-              {metadata.get(sourceToken!.mint)?.symbol ?? truncateAddress(sourceToken!.mint)}
-            </Text>
+            <Text color="cyan">{assetSymbol(sourceToken!)}</Text>
           </Box>
           <Box>
             <Text dimColor>To: </Text>
@@ -695,7 +696,7 @@ export default function SwapScreen({
               <Text dimColor>{"Sell:      "}</Text>
               <Text>
                 {formatAmount(quote.inAmount, sourceToken!.decimals)}{" "}
-                {metadata.get(quote.inputMint)?.symbol ?? truncateAddress(quote.inputMint)}
+                {assetSymbol(sourceToken!)}
               </Text>
             </Box>
             <Box>
@@ -769,7 +770,7 @@ export default function SwapScreen({
                   <Text dimColor>{"Sold:     "}</Text>
                   <Text>
                     {formatAmount(swapResult.inAmount, sourceToken?.decimals ?? 9)}{" "}
-                    {metadata.get(swapResult.inputMint)?.symbol ?? truncateAddress(swapResult.inputMint)}
+                    {sourceToken ? assetSymbol(sourceToken) : truncateAddress(swapResult.inputMint)}
                   </Text>
                 </Box>
                 <Box>
