@@ -40,7 +40,6 @@ export async function getWrapAvailability(
     : await accountExists(rpc, wrappedSolAccountAddress);
 
   return {
-    walletAddress,
     nativeSolRawBalance: nativeSol?.rawBalance ?? 0n,
     nativeSolBalance: nativeSol?.balance ?? 0,
     wrappedSolAccountAddress,
@@ -48,7 +47,6 @@ export async function getWrapAvailability(
     wrappedSolRawBalance,
     wrappedSolBalance: standardWrappedSol?.balance ?? 0,
     extraWrappedSolRawBalance,
-    extraWrappedSolBalance: Number(extraWrappedSolRawBalance) / 1e9,
     wrappedSolAccountRentLamports,
   };
 }

@@ -42,6 +42,14 @@ function resultVerb(action: WrapAction): string {
   return action === "wrap" ? "Wrapped" : "Unwrapped";
 }
 
+function missingStandardWrapMessage(availability: WrapAvailability): string {
+  if (availability.extraWrappedSolRawBalance > 0n) {
+    return "Unwrap here only supports the standard Wrapped SOL account. This wallet's Wrapped SOL is held in a different token account.";
+  }
+
+  return "No standard Wrapped SOL account found.";
+}
+
 export default function WrapScreen({
   walletAddress,
   rpc,
@@ -90,7 +98,10 @@ export default function WrapScreen({
     setCopied(false);
   }, []);
 
-  const loadAvailability = useCallback(async (options?: { autoRedirectToWrap?: boolean }) => {
+  const loadAvailability = useCallback(async (options?: {
+    autoRedirectToWrap?: boolean;
+    preferredAction?: WrapAction;
+  }) => {
     if (!walletAddress || fetchInFlight.current) return;
     fetchInFlight.current = true;
     setLoading(true);
@@ -101,7 +112,11 @@ export default function WrapScreen({
       setLastUpdated(new Date());
       setError(null);
 
-      if (options?.autoRedirectToWrap && !nextAvailability.wrappedSolAccountExists) {
+      if (
+        options?.autoRedirectToWrap
+        && !nextAvailability.wrappedSolAccountExists
+        && options.preferredAction !== "unwrap"
+      ) {
         setAction("wrap");
         setStep("enter-amount");
       }
@@ -120,7 +135,11 @@ export default function WrapScreen({
     }
 
     resetFlow(preferredAction(entryAsset));
-    void loadAvailability({ autoRedirectToWrap: true });
+    const nextPreferredAction = preferredAction(entryAsset);
+    void loadAvailability({
+      autoRedirectToWrap: true,
+      preferredAction: nextPreferredAction,
+    });
   }, [isActive, entryAsset, loadAvailability, resetFlow]);
 
   useEffect(() => {
@@ -134,13 +153,13 @@ export default function WrapScreen({
       return null;
     }
 
-    if (action === "unwrap") {
-      if (!availability.wrappedSolAccountExists) {
-        setError("No standard Wrapped SOL account found.");
-        return null;
-      }
-      if (availability.wrappedSolRawBalance <= 0n) {
-        setError("No Wrapped SOL available in the standard account.");
+      if (action === "unwrap") {
+        if (!availability.wrappedSolAccountExists) {
+          setError(missingStandardWrapMessage(availability));
+          return null;
+        }
+        if (availability.wrappedSolRawBalance <= 0n) {
+          setError("No Wrapped SOL available in the standard account.");
         return null;
       }
 
@@ -420,7 +439,7 @@ export default function WrapScreen({
         </Box>
       )}
 
-      {loading && step === "choose-action" && (
+      {loading && (step === "choose-action" || step === "enter-amount") && (
         <Box marginTop={1}>
           <Text dimColor>Loading wrap balances...</Text>
         </Box>
@@ -443,7 +462,7 @@ export default function WrapScreen({
         </Box>
       )}
 
-      {step === "choose-action" && availability?.wrappedSolAccountExists && (
+      {step === "choose-action" && availability && (
         <Box flexDirection="column" marginTop={1}>
           <Text dimColor>Choose action:</Text>
           <Box marginTop={1} flexDirection="column">
@@ -459,12 +478,12 @@ export default function WrapScreen({
               );
             })}
           </Box>
-          {availability && !availability.wrappedSolAccountExists && (
+          {!availability.wrappedSolAccountExists && availability.extraWrappedSolRawBalance > 0n && (
             <Box marginTop={1}>
-              <Text dimColor>Wrap will create your standard Wrapped SOL account.</Text>
+              <Text color="yellow">{missingStandardWrapMessage(availability)}</Text>
             </Box>
           )}
-          {availability && availability.extraWrappedSolRawBalance > 0n && (
+          {availability.extraWrappedSolRawBalance > 0n && (
             <Box marginTop={1}>
               <Text dimColor>
                 Note: additional WSOL exists outside the standard account. Unwrap only affects the standard account.
@@ -560,7 +579,9 @@ export default function WrapScreen({
         <Box flexDirection="column" marginTop={1}>
           {result.success ? (
             <>
-              <Text color="green" bold>{action === "wrap" ? "Wrap successful!" : "Unwrap successful!"}</Text>
+              <Text color="green" bold>
+                {result.action === "wrap" ? "Wrap successful!" : "Unwrap successful!"}
+              </Text>
               <Box marginTop={1} flexDirection="column">
                 <Box>
                   <Text dimColor>{`${resultVerb(result.action)}: `}</Text>
@@ -576,7 +597,7 @@ export default function WrapScreen({
             </>
           ) : (
             <>
-              <Text color="red" bold>{action === "wrap" ? "Wrap failed" : "Unwrap failed"}</Text>
+              <Text color="red" bold>{result.action === "wrap" ? "Wrap failed" : "Unwrap failed"}</Text>
               <Box marginTop={1}>
                 <Text color="red">{result.error}</Text>
               </Box>
