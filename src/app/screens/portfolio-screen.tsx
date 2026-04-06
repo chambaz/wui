@@ -483,7 +483,7 @@ export default function PortfolioScreen({
       <Box marginTop={1} gap={2}>
         <Text dimColor>
           {showDetail
-            ? "[up/down] navigate  [y] copy mint  [esc] close"
+            ? "[up/down] navigate  [s] swap  [t] transfer  [y] copy mint  [esc] close"
             : "[up/down] navigate  [enter] details"}
         </Text>
         {copied && <Text color="green">copied!</Text>}
