@@ -10,10 +10,13 @@ import {
   formatBalance,
   formatPercent,
   timeAgo,
+  getAssetName,
+  getAssetSymbol,
 } from "../../lib/format.js";
 import type {
   PortfolioRow,
   PortfolioSummary,
+  SelectedAssetRef,
   TokenBalance,
   TokenMetadata,
   TokenPrice,
@@ -27,7 +30,7 @@ interface PortfolioScreenProps {
   rpc: Rpc<SolanaRpcApi>;
   jupiterApiKey: string;
   isActive: boolean;
-  onSelectedMintChange: (mint: string | null) => void;
+  onSelectedMintChange: (asset: SelectedAssetRef | null) => void;
   /** Increment to trigger a data refresh from outside the component. */
   refreshKey: number;
 }
@@ -47,9 +50,12 @@ function buildPortfolioRows(
       const usdValue = usdPrice !== null ? b.balance * usdPrice : null;
 
       return {
+        id: b.id,
         mint: b.mint,
-        symbol: meta?.symbol ?? truncateAddress(b.mint),
-        name: meta?.name ?? "Unknown",
+        accountAddress: b.accountAddress,
+        assetKind: b.assetKind,
+        symbol: getAssetSymbol(b.assetKind, b.mint, meta?.symbol ?? null),
+        name: getAssetName(b.assetKind, b.mint, meta?.name ?? null),
         iconUrl: meta?.iconUrl ?? null,
         balance: b.balance,
         decimals: b.decimals,
@@ -89,7 +95,7 @@ function computeSummary(rows: PortfolioRow[]): PortfolioSummary {
 // --- Column widths ---
 
 const COL = {
-  token: 10,
+  token: 12,
   balance: 16,
   price: 14,
   value: 14,
@@ -119,7 +125,13 @@ export default function PortfolioScreen({
   // Notify parent of selected mint — only when detail drawer is open.
   useEffect(() => {
     const selectedMint = showDetail
-      ? (rows[selectedIndex]?.mint ?? null)
+      ? rows[selectedIndex]
+        ? {
+            id: rows[selectedIndex].id,
+            mint: rows[selectedIndex].mint,
+            assetKind: rows[selectedIndex].assetKind,
+          }
+        : null
       : null;
     onSelectedMintChange(selectedMint);
   }, [selectedIndex, rows, showDetail, onSelectedMintChange]);
@@ -141,7 +153,7 @@ export default function PortfolioScreen({
 
       try {
         const balances = await fetchAllBalances(rpc, walletAddress);
-        const mints = balances.map((b) => b.mint);
+        const mints = [...new Set(balances.map((b) => b.mint))];
 
         const [metadata, prices] = await Promise.all([
           fetchTokenMetadata(mints, jupiterApiKey),
@@ -387,7 +399,7 @@ export default function PortfolioScreen({
         const indicator = isSelected ? "> " : "  ";
 
         return (
-          <Box key={row.mint}>
+          <Box key={row.id}>
             <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
               {indicator}
               {row.symbol.padEnd(COL.token)}
@@ -429,6 +441,12 @@ export default function PortfolioScreen({
               <Text dimColor>{"Mint:      "}</Text>
               <Text>{selected.mint}</Text>
             </Box>
+            {selected.accountAddress && (
+              <Box>
+                <Text dimColor>{"Account:   "}</Text>
+                <Text>{selected.accountAddress}</Text>
+              </Box>
+            )}
             <Box>
               <Text dimColor>{"Balance:   "}</Text>
               <Text>{formatBalance(selected.balance, selected.decimals)}</Text>

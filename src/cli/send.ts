@@ -103,6 +103,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
 
   const request: TransferRequest = {
     mint: token.mint,
+    sourceAccountAddress: token.accountAddress,
     recipient: recipientArg,
     amount: rawAmount,
     decimals: token.decimals,

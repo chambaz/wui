@@ -1,7 +1,17 @@
 /** A single token holding in the portfolio. */
+export type AssetKind = "native-sol" | "wrapped-sol" | "token";
+
 export interface TokenBalance {
+  /** Stable unique identity for this balance row. */
+  id: string;
   /** Mint address (native SOL uses the wrapped SOL mint). */
   mint: string;
+  /** Token account address for SPL balances, null for native SOL. */
+  accountAddress: string | null;
+  /** Owning token program for SPL balances, null for native SOL. */
+  tokenProgram: string | null;
+  /** Display classification used to distinguish SOL from WSOL. */
+  assetKind: AssetKind;
   /** Raw on-chain balance (before decimal normalization). */
   rawBalance: bigint;
   /** Token decimals. */
@@ -32,7 +42,10 @@ export interface TokenPrice {
 
 /** Fully enriched portfolio row combining balance, metadata, and price. */
 export interface PortfolioRow {
+  id: string;
   mint: string;
+  accountAddress: string | null;
+  assetKind: AssetKind;
   symbol: string;
   name: string;
   iconUrl: string | null;
@@ -51,4 +64,10 @@ export interface PortfolioSummary {
   change24h: number;
   /** Estimated 24h change as a percentage of total value. */
   changePercent24h: number | null;
+}
+
+export interface SelectedAssetRef {
+  id: string;
+  mint: string;
+  assetKind: AssetKind;
 }

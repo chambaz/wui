@@ -1,7 +1,7 @@
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata, fetchTokenPrices } from "../pricing/index.js";
 import { bootstrap, printJson, printTable } from "./index.js";
-import { formatUsd, formatPercent } from "../lib/format.js";
+import { formatUsd, formatPercent, getAssetSymbol } from "../lib/format.js";
 import type { TokenBalance, TokenMetadata, TokenPrice } from "../types/portfolio.js";
 
 /** Build a portfolio row for display. */
@@ -10,7 +10,7 @@ function buildRow(
   meta: TokenMetadata | undefined,
   price: TokenPrice | undefined,
 ) {
-  const symbol = meta?.symbol ?? b.mint.slice(0, 8);
+  const symbol = getAssetSymbol(b.assetKind, b.mint, meta?.symbol ?? null);
   const usdPrice = price?.usdPrice ?? null;
   const usdValue = usdPrice !== null ? b.balance * usdPrice : null;
   const change = price?.priceChange24h ?? null;
@@ -53,7 +53,7 @@ export async function portfolioCommand(json: boolean): Promise<void> {
   console.log(`Total:  ${formatUsd(totalValue)}`);
   console.log();
 
-  const colWidths = [10, 16, 12, 14, 10];
+  const colWidths = [12, 16, 12, 14, 10];
   const tableRows = rows.map((r) => [
     r.symbol,
     r.balance.toLocaleString("en-US", { maximumFractionDigits: 6 }),

@@ -43,7 +43,8 @@ export async function executeTransfer(
       txMessage = appendTransactionMessageInstruction(ix, baseMessage);
     } else {
       const tokenProgram = await getTokenProgramForMint(rpc, request.mint);
-      const sourceAta = await getAssociatedTokenAddress(signer.address, request.mint, tokenProgram);
+      const sourceAta = request.sourceAccountAddress
+        ?? await getAssociatedTokenAddress(signer.address, request.mint, tokenProgram);
       const destAta = await getAssociatedTokenAddress(request.recipient, request.mint, tokenProgram);
       const destAtaExists = await accountExists(rpc, destAta);
 

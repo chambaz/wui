@@ -21,7 +21,11 @@ async function fetchSolBalance(
   const decimals = 9;
 
   return {
+    id: "native-sol",
     mint: NATIVE_SOL_MINT,
+    accountAddress: null,
+    tokenProgram: null,
+    assetKind: "native-sol",
     rawBalance,
     decimals,
     balance: Number(rawBalance) / 10 ** decimals,
@@ -29,7 +33,7 @@ async function fetchSolBalance(
   };
 }
 
-/** Shape returned by getTokenAccountsByOwner with jsonParsed encoding. */
+/** Subset of parsed token account info used by the portfolio loader. */
 interface ParsedTokenAccountInfo {
   mint: string;
   tokenAmount: {
@@ -63,7 +67,11 @@ async function fetchTokenAccounts(
     if (rawBalance === 0n) continue;
 
     balances.push({
+      id: item.pubkey,
       mint: info.mint,
+      accountAddress: item.pubkey,
+      tokenProgram: programId,
+      assetKind: info.mint === NATIVE_SOL_MINT ? "wrapped-sol" : "token",
       rawBalance,
       decimals: info.tokenAmount.decimals,
       balance: info.tokenAmount.uiAmount ?? Number(rawBalance) / 10 ** info.tokenAmount.decimals,

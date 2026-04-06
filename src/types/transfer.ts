@@ -2,6 +2,8 @@
 export interface TransferRequest {
   /** Mint address (wrapped SOL mint for native SOL). */
   mint: string;
+  /** Source token account address for SPL transfers, null for native SOL. */
+  sourceAccountAddress?: string | null;
   /** Recipient wallet address. */
   recipient: string;
   /** Raw amount in smallest units (lamports / atomic units). */

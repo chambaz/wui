@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Box, useApp, useInput } from "ink";
 import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import type { Screen } from "../types/screens.js";
+import type { SelectedAssetRef } from "../types/portfolio.js";
 import type { WalletEntry } from "../types/wallet.js";
 import type { AppConfig } from "../lib/config.js";
 import { getActiveWalletEntry } from "../wallet/index.js";
@@ -48,17 +49,13 @@ export default function App({
   const [stakingCapturingInput, setStakingCapturingInput] = useState(false);
 
   // Currently selected mint in portfolio screen (for cross-screen shortcuts).
-  const [portfolioSelectedMint, setPortfolioSelectedMint] = useState<
-    string | null
+  const [portfolioSelectedAsset, setPortfolioSelectedAsset] = useState<
+    SelectedAssetRef | null
   >(null);
 
   // Pre-selected mint passed to swap/send screens when navigating from portfolio.
-  const [swapPreSelectedMint, setSwapPreSelectedMint] = useState<string | null>(
-    null,
-  );
-  const [sendPreSelectedMint, setSendPreSelectedMint] = useState<string | null>(
-    null,
-  );
+  const [swapPreSelectedAsset, setSwapPreSelectedAsset] = useState<SelectedAssetRef | null>(null);
+  const [sendPreSelectedAsset, setSendPreSelectedAsset] = useState<SelectedAssetRef | null>(null);
 
   // Refresh key — incremented after swaps/transfers/staking to trigger data refreshes.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -92,11 +89,11 @@ export default function App({
       const targetScreen = SCREEN_KEYS[input];
 
       // When switching from portfolio to swap or send, pass the selected mint.
-      if (screen === "portfolio" && portfolioSelectedMint) {
+      if (screen === "portfolio" && portfolioSelectedAsset) {
         if (targetScreen === "swap") {
-          setSwapPreSelectedMint(portfolioSelectedMint);
+          setSwapPreSelectedAsset(portfolioSelectedAsset);
         } else if (targetScreen === "send") {
-          setSendPreSelectedMint(portfolioSelectedMint);
+          setSendPreSelectedAsset(portfolioSelectedAsset);
         }
       }
 
@@ -130,7 +127,7 @@ export default function App({
             rpc={rpc}
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "portfolio"}
-            onSelectedMintChange={setPortfolioSelectedMint}
+            onSelectedMintChange={setPortfolioSelectedAsset}
             refreshKey={refreshKey}
           />
         </Box>
@@ -144,8 +141,8 @@ export default function App({
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "swap"}
             onCapturingInputChange={setSwapCapturingInput}
-            preSelectedMint={swapPreSelectedMint}
-            onPreSelectedMintConsumed={() => setSwapPreSelectedMint(null)}
+            preSelectedAsset={swapPreSelectedAsset}
+            onPreSelectedAssetConsumed={() => setSwapPreSelectedAsset(null)}
             refreshKey={refreshKey}
             onTransactionComplete={handleTransactionComplete}
           />
@@ -160,8 +157,8 @@ export default function App({
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "send"}
             onCapturingInputChange={setSendCapturingInput}
-            preSelectedMint={sendPreSelectedMint}
-            onPreSelectedMintConsumed={() => setSendPreSelectedMint(null)}
+            preSelectedAsset={sendPreSelectedAsset}
+            onPreSelectedAssetConsumed={() => setSendPreSelectedAsset(null)}
             refreshKey={refreshKey}
             onTransactionComplete={handleTransactionComplete}
           />
@@ -184,6 +181,7 @@ export default function App({
         >
           <WalletsScreen
             isActive={screen === "wallets"}
+            rpc={rpc}
             onWalletChange={refreshWallet}
             onCapturingInputChange={setWalletsCapturingInput}
           />
