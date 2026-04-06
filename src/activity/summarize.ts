@@ -100,11 +100,8 @@ function buildSwapSummary(tx: ParsedTransaction, walletAddress: string): string 
     walletAddress,
   ).filter((c) => c.mint !== NATIVE_SOL_MINT);
 
-  const walletIndex = tx.transaction.message.accountKeys.findIndex((k) => k.pubkey === walletAddress);
   const feeSol = Number(tx.meta.fee ?? 0n) / 1e9;
-  const solDiff = walletIndex >= 0
-    ? Number(BigInt(tx.meta.postBalances[walletIndex] ?? 0) - BigInt(tx.meta.preBalances[walletIndex] ?? 0) + BigInt(tx.meta.fee ?? 0n)) / 1e9
-    : 0;
+  const solDiff = computeWalletSolDelta(tx, walletAddress);
 
   const allChanges: Array<{ label: string; delta: number }> = [];
   if (Math.abs(solDiff) > 0.001 || feeSol > 0) allChanges.push({ label: "SOL", delta: solDiff });

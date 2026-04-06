@@ -1,7 +1,6 @@
 export type WrapAction = "wrap" | "unwrap";
 
 export interface WrapAvailability {
-  walletAddress: string;
   nativeSolRawBalance: bigint;
   nativeSolBalance: number;
   wrappedSolAccountAddress: string;
@@ -9,7 +8,6 @@ export interface WrapAvailability {
   wrappedSolRawBalance: bigint;
   wrappedSolBalance: number;
   extraWrappedSolRawBalance: bigint;
-  extraWrappedSolBalance: number;
   wrappedSolAccountRentLamports: bigint;
 }
 
