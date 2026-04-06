@@ -668,7 +668,7 @@ export default function StakingScreen({
     // --- Preview ---
     if (step === "preview") {
       if (key.escape) { setStep("amount"); return; }
-      if (key.return) {
+      if (input === "c" || key.return) {
         if (flowAction === "unstake" && unstakePosition) {
           void handleUnstake(unstakePosition);
         } else {
@@ -1020,7 +1020,7 @@ export default function StakingScreen({
           )}
         </Box>
         <Box marginTop={1}>
-          <Text dimColor>[enter] confirm  [esc] back</Text>
+          <Text dimColor>[c/enter] confirm  [esc] back</Text>
         </Box>
       </Box>
     );
