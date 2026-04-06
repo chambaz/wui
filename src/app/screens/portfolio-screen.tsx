@@ -31,6 +31,10 @@ interface PortfolioScreenProps {
   jupiterApiKey: string;
   isActive: boolean;
   onSelectedMintChange: (asset: SelectedAssetRef | null) => void;
+  onCapturingInputChange: (capturing: boolean) => void;
+  onOpenSwap: (asset: SelectedAssetRef) => void;
+  onOpenSend: (asset: SelectedAssetRef) => void;
+  onOpenWrap: (asset: SelectedAssetRef) => void;
   /** Increment to trigger a data refresh from outside the component. */
   refreshKey: number;
 }
@@ -108,6 +112,10 @@ export default function PortfolioScreen({
   jupiterApiKey,
   isActive,
   onSelectedMintChange,
+  onCapturingInputChange,
+  onOpenSwap,
+  onOpenSend,
+  onOpenWrap,
   refreshKey,
 }: PortfolioScreenProps) {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
@@ -122,7 +130,11 @@ export default function PortfolioScreen({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [, setTick] = useState(0);
 
-  // Notify parent of selected mint — only when detail drawer is open.
+  useEffect(() => {
+    onCapturingInputChange(showDetail);
+  }, [showDetail, onCapturingInputChange]);
+
+  // Notify parent of selected asset — only when detail drawer is open.
   useEffect(() => {
     const selectedMint = showDetail
       ? rows[selectedIndex]
@@ -273,6 +285,30 @@ export default function PortfolioScreen({
         return;
       }
 
+      if ((input === "s" || input === "t" || input === "w") && showDetail && rows[selectedIndex]) {
+        const selectedRow = rows[selectedIndex];
+        const selectedAsset = {
+          id: selectedRow.id,
+          mint: selectedRow.mint,
+          assetKind: selectedRow.assetKind,
+        } satisfies SelectedAssetRef;
+
+        if (input === "s") {
+          onOpenSwap(selectedAsset);
+          return;
+        }
+
+        if (input === "t") {
+          onOpenSend(selectedAsset);
+          return;
+        }
+
+        if (selectedRow.assetKind === "native-sol" || selectedRow.assetKind === "wrapped-sol") {
+          onOpenWrap(selectedAsset);
+          return;
+        }
+      }
+
       // Toggle detail.
       if (key.return && rows.length > 0) {
         setShowDetail((v) => !v);
@@ -344,6 +380,7 @@ export default function PortfolioScreen({
   // --- Data view ---
 
   const selected = rows[selectedIndex];
+  const wrapEligible = selected?.assetKind === "native-sol" || selected?.assetKind === "wrapped-sol";
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
@@ -483,7 +520,9 @@ export default function PortfolioScreen({
       <Box marginTop={1} gap={2}>
         <Text dimColor>
           {showDetail
-            ? "[up/down] navigate  [s] swap  [t] transfer  [y] copy mint  [esc] close"
+            ? wrapEligible
+              ? "[up/down] navigate  [s] swap  [t] transfer  [w] wrap/unwrap  [y] copy mint  [esc] close"
+              : "[up/down] navigate  [s] swap  [t] transfer  [y] copy mint  [esc] close"
             : "[up/down] navigate  [enter] details"}
         </Text>
         {copied && <Text color="green">copied!</Text>}

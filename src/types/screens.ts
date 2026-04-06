@@ -1,1 +1,1 @@
-export type Screen = "portfolio" | "swap" | "send" | "activity" | "wallets" | "staking";
+export type Screen = "portfolio" | "swap" | "send" | "activity" | "wallets" | "staking" | "wrap";

@@ -15,6 +15,7 @@ import SendScreen from "./screens/send-screen.js";
 import ActivityScreen from "./screens/activity-screen.js";
 import WalletsScreen from "./screens/wallets-screen.js";
 import StakingScreen from "./screens/staking-screen.js";
+import WrapScreen from "./screens/wrap-screen.js";
 
 interface AppProps {
   wallet: WalletEntry | null;
@@ -45,17 +46,20 @@ export default function App({
   const [wallet, setWallet] = useState<WalletEntry | null>(initialWallet);
   const [swapCapturingInput, setSwapCapturingInput] = useState(false);
   const [sendCapturingInput, setSendCapturingInput] = useState(false);
+  const [portfolioCapturingInput, setPortfolioCapturingInput] = useState(false);
   const [walletsCapturingInput, setWalletsCapturingInput] = useState(false);
   const [stakingCapturingInput, setStakingCapturingInput] = useState(false);
+  const [wrapCapturingInput, setWrapCapturingInput] = useState(false);
 
-  // Currently selected mint in portfolio screen (for cross-screen shortcuts).
+  // Currently selected asset in portfolio screen (for cross-screen shortcuts).
   const [portfolioSelectedAsset, setPortfolioSelectedAsset] = useState<
     SelectedAssetRef | null
   >(null);
 
-  // Pre-selected mint passed to swap/send screens when navigating from portfolio.
+  // Pre-selected asset passed to swap/send screens when navigating from portfolio.
   const [swapPreSelectedAsset, setSwapPreSelectedAsset] = useState<SelectedAssetRef | null>(null);
   const [sendPreSelectedAsset, setSendPreSelectedAsset] = useState<SelectedAssetRef | null>(null);
+  const [wrapEntryAsset, setWrapEntryAsset] = useState<SelectedAssetRef | null>(null);
 
   // Refresh key — incremented after swaps/transfers/staking to trigger data refreshes.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -73,10 +77,12 @@ export default function App({
   useInput((input) => {
     // When a screen is capturing text input, don't process single-key shortcuts.
     if (
+      portfolioCapturingInput ||
       swapCapturingInput ||
       sendCapturingInput ||
       walletsCapturingInput ||
-      stakingCapturingInput
+      stakingCapturingInput ||
+      wrapCapturingInput
     )
       return;
 
@@ -88,7 +94,7 @@ export default function App({
     if (input in SCREEN_KEYS) {
       const targetScreen = SCREEN_KEYS[input];
 
-      // When switching from portfolio to swap or send, pass the selected mint.
+      // When switching from portfolio to swap or send, pass the selected asset.
       if (screen === "portfolio" && portfolioSelectedAsset) {
         if (targetScreen === "swap") {
           setSwapPreSelectedAsset(portfolioSelectedAsset);
@@ -128,6 +134,19 @@ export default function App({
             jupiterApiKey={config.jupiterApiKey}
             isActive={screen === "portfolio"}
             onSelectedMintChange={setPortfolioSelectedAsset}
+            onCapturingInputChange={setPortfolioCapturingInput}
+            onOpenSwap={(asset) => {
+              setSwapPreSelectedAsset(asset);
+              setScreen("swap");
+            }}
+            onOpenSend={(asset) => {
+              setSendPreSelectedAsset(asset);
+              setScreen("send");
+            }}
+            onOpenWrap={(asset) => {
+              setWrapEntryAsset(asset);
+              setScreen("wrap");
+            }}
             refreshKey={refreshKey}
           />
         </Box>
@@ -161,6 +180,23 @@ export default function App({
             onPreSelectedAssetConsumed={() => setSendPreSelectedAsset(null)}
             refreshKey={refreshKey}
             onTransactionComplete={handleTransactionComplete}
+          />
+        </Box>
+        <Box
+          display={screen === "wrap" ? "flex" : "none"}
+          flexDirection="column"
+        >
+          <WrapScreen
+            walletAddress={wallet?.publicKey ?? null}
+            rpc={rpc}
+            isActive={screen === "wrap"}
+            entryAsset={wrapEntryAsset}
+            onCapturingInputChange={setWrapCapturingInput}
+            onTransactionComplete={handleTransactionComplete}
+            onExit={() => {
+              setWrapEntryAsset(null);
+              setScreen("portfolio");
+            }}
           />
         </Box>
         <Box
