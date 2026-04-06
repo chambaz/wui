@@ -41,6 +41,57 @@ function computeTokenChanges(
   return changes;
 }
 
+function computeWalletSolDelta(tx: ParsedTransaction, walletAddress: string): number {
+  if (!tx.meta) return 0;
+
+  const walletIndex = tx.transaction.message.accountKeys.findIndex((k) => k.pubkey === walletAddress);
+  if (walletIndex < 0) return 0;
+
+  return Number(
+    BigInt(tx.meta.postBalances[walletIndex] ?? 0)
+      - BigInt(tx.meta.preBalances[walletIndex] ?? 0)
+      + BigInt(tx.meta.fee ?? 0n),
+  ) / 1e9;
+}
+
+function hasParsedInstructionType(tx: ParsedTransaction, type: string): boolean {
+  return tx.transaction.message.instructions.some(
+    (ix) => ix.parsed?.type === type,
+  );
+}
+
+function detectWrapOrUnwrap(tx: ParsedTransaction, walletAddress: string): ClassifiedTx | null {
+  if (!tx.meta) return null;
+
+  const tokenChanges = computeTokenChanges(
+    tx.meta.preTokenBalances,
+    tx.meta.postTokenBalances,
+    walletAddress,
+  );
+  const nativeMintChange = tokenChanges.find((change) => change.mint === NATIVE_SOL_MINT);
+  if (!nativeMintChange) {
+    return null;
+  }
+
+  const solDelta = computeWalletSolDelta(tx, walletAddress);
+
+  if (hasParsedInstructionType(tx, "syncNative") && nativeMintChange.delta > 0 && solDelta < 0) {
+    return {
+      type: "transfer-out",
+      summary: `Wrapped ${formatCompact(nativeMintChange.delta)} SOL`,
+    };
+  }
+
+  if (hasParsedInstructionType(tx, "closeAccount") && nativeMintChange.delta < 0 && solDelta > 0) {
+    return {
+      type: "transfer-in",
+      summary: `Unwrapped ${formatCompact(Math.abs(nativeMintChange.delta))} SOL`,
+    };
+  }
+
+  return null;
+}
+
 function buildSwapSummary(tx: ParsedTransaction, walletAddress: string): string {
   if (!tx.meta) return "Swap";
   const tokenChanges = computeTokenChanges(
@@ -128,6 +179,8 @@ export function classifyTransaction(tx: ParsedTransaction, walletAddress: string
   if (programs.includes(JUPITER_PROGRAM_ID)) {
     return { type: "swap", summary: buildSwapSummary(tx, walletAddress) };
   }
+  const wrapOrUnwrap = detectWrapOrUnwrap(tx, walletAddress);
+  if (wrapOrUnwrap) return wrapOrUnwrap;
   const transfer = detectTransfer(tx, walletAddress);
   if (transfer) return transfer;
   return { type: "unknown", summary: "Unknown" };
