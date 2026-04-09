@@ -13,6 +13,7 @@ import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
 import { walletCommand } from "./cli/wallet.js";
 import { unwrapCommand, wrapCommand } from "./cli/wrap.js";
+import { swapCommand } from "./cli/swap.js";
 import type { AppConfig } from "./lib/config.js";
 
 /** Launch the interactive TUI. */
@@ -100,6 +101,7 @@ Commands:
   wallet       Wallet commands: wui wallet <current|use>
   wrap         Wrap native SOL: wui wrap <amount|max>
   unwrap       Unwrap standard WSOL: wui unwrap
+  swap         Swap tokens: wui swap <amount> <from> <to>
   send         Send tokens: wui send <address> <amount> <token>
 
 Options:
@@ -127,6 +129,9 @@ async function main() {
       return;
     case "unwrap":
       await unwrapCommand(json);
+      return;
+    case "swap":
+      await swapCommand(args, json);
       return;
     case "config":
       await launchSetup(() => {
