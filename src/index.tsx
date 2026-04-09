@@ -12,7 +12,7 @@ import { portfolioCommand } from "./cli/portfolio.js";
 import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
 import { walletCommand } from "./cli/wallet.js";
-import { wrapCommand } from "./cli/wrap.js";
+import { unwrapCommand, wrapCommand } from "./cli/wrap.js";
 import type { AppConfig } from "./lib/config.js";
 
 /** Launch the interactive TUI. */
@@ -99,6 +99,7 @@ Commands:
   activity     Print recent transaction activity
   wallet       Wallet commands: wui wallet <current|use>
   wrap         Wrap native SOL: wui wrap <amount|max>
+  unwrap       Unwrap standard WSOL: wui unwrap
   send         Send tokens: wui send <address> <amount> <token>
 
 Options:
@@ -123,6 +124,9 @@ async function main() {
       return;
     case "wrap":
       await wrapCommand(args, json);
+      return;
+    case "unwrap":
+      await unwrapCommand(json);
       return;
     case "config":
       await launchSetup(() => {
