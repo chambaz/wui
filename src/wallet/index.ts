@@ -753,6 +753,32 @@ export function switchWallet(labelOrIndex: string | number): WalletEntry {
   return target;
 }
 
+export function findWalletByLabelOrPublicKey(selector: string): WalletEntry | null {
+  const store = readStore();
+
+  return store.wallets.find((wallet) => wallet.publicKey === selector)
+    ?? store.wallets.find((wallet) => wallet.label === selector)
+    ?? null;
+}
+
+export function switchWalletByLabelOrPublicKey(selector: string): WalletEntry {
+  const store = readStore();
+  const target = store.wallets.find((wallet) => wallet.publicKey === selector)
+    ?? store.wallets.find((wallet) => wallet.label === selector);
+
+  if (!target) {
+    throw new Error(`Wallet not found: ${selector}`);
+  }
+
+  for (const wallet of store.wallets) {
+    wallet.isActive = wallet.id === target.id;
+  }
+
+  lockAllWallets();
+  writeStore(store);
+  return target;
+}
+
 export function labelWallet(currentLabel: string, newLabel: string): WalletEntry {
   const normalizedLabel = newLabel.trim();
   validateLabel(normalizedLabel);
