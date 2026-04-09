@@ -476,6 +476,14 @@ function clearUnlockedWallet(walletId: string): void {
   unlockedWallets.delete(walletId);
 }
 
+function createAutoLockTimer(walletId: string): ReturnType<typeof setTimeout> {
+  const timer = setTimeout(() => {
+    unlockedWallets.delete(walletId);
+  }, AUTO_LOCK_MS);
+  timer.unref();
+  return timer;
+}
+
 function scheduleAutoLock(walletId: string): void {
   const session = unlockedWallets.get(walletId);
   if (!session) {
@@ -483,9 +491,7 @@ function scheduleAutoLock(walletId: string): void {
   }
 
   clearTimeout(session.timer);
-  session.timer = setTimeout(() => {
-    unlockedWallets.delete(walletId);
-  }, AUTO_LOCK_MS);
+  session.timer = createAutoLockTimer(walletId);
 }
 
 async function createWalletEntry(
@@ -573,9 +579,7 @@ export async function unlockWallet(walletId: string, passphrase: string): Promis
   clearUnlockedWallet(walletId);
   unlockedWallets.set(walletId, {
     signer,
-    timer: setTimeout(() => {
-      unlockedWallets.delete(walletId);
-    }, AUTO_LOCK_MS),
+    timer: createAutoLockTimer(walletId),
   });
   scheduleAutoLock(walletId);
 }
