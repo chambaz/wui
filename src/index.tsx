@@ -103,7 +103,7 @@ Commands:
   send         Send tokens: wui send <address> <amount> <token>
 
 Options:
-  --json       Output as JSON (non-interactive commands only)`;
+  --json       Output CLI command results as JSON`;
 
 async function main() {
   const { command, args, json } = parseArgs(process.argv);

@@ -1,15 +1,9 @@
 import { parseDecimalAmount } from "../lib/format.js";
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata } from "../pricing/index.js";
-import {
-  getActiveWalletSigner,
-  unlockWallet,
-  WalletLockedError,
-} from "../wallet/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../transfer/index.js";
 import type { TransferRequest } from "../types/transfer.js";
-import { bootstrap, printJson } from "./index.js";
-import { promptForPassphrase } from "./prompt.js";
+import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
 
 export async function sendCommand(args: string[], json: boolean): Promise<void> {
   if (args.length < 3) {
@@ -33,27 +27,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
     throw new Error("Cannot send to yourself.");
   }
 
-  let signer;
-  try {
-    signer = await getActiveWalletSigner();
-  } catch (error: unknown) {
-    if (error instanceof WalletLockedError) {
-      if (json) {
-        throw new Error(
-          "Encrypted wallets are not supported with `wui send --json` because passphrase entry requires an interactive terminal.",
-        );
-      }
-      const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet \"${wallet.label}\": `);
-      await unlockWallet(wallet.id, passphrase);
-      signer = await getActiveWalletSigner();
-    } else {
-      throw error;
-    }
-  }
-
-  if (!signer) {
-    throw new Error("Could not load wallet signer.");
-  }
+  const signer = await getCliActiveSigner(json);
 
   // Find the token in the wallet's balances.
   const balances = await fetchAllBalances(rpc, wallet.publicKey);

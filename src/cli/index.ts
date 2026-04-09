@@ -95,7 +95,7 @@ export function bootstrapWalletStore(): WalletCliContext {
 }
 
 /** Load the active wallet signer, prompting for a passphrase if needed. */
-export async function getCliActiveSigner(json: boolean): Promise<KeyPairSigner> {
+export async function getCliActiveSigner(_json: boolean): Promise<KeyPairSigner> {
   const { wallet } = bootstrapWalletStore();
   if (!wallet) {
     throw new Error("No active wallet. Run `wui` and press [w] to create or import one.");
@@ -110,12 +110,6 @@ export async function getCliActiveSigner(json: boolean): Promise<KeyPairSigner> 
   } catch (error: unknown) {
     if (!(error instanceof WalletLockedError)) {
       throw error;
-    }
-
-    if (json) {
-      throw new Error(
-        "Encrypted wallets are not supported with `--json` when passphrase entry is required.",
-      );
     }
 
     const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet "${wallet.label}": `);
