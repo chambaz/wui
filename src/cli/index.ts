@@ -19,6 +19,11 @@ export interface CliContext {
   wallet: WalletEntry;
 }
 
+/** Wallet-store-only context for commands that do not need RPC/config. */
+export interface WalletCliContext {
+  wallet: WalletEntry | null;
+}
+
 /** Parse process.argv into a structured command + flags. */
 export function parseArgs(argv: string[]): CliArgs {
   const raw = argv.slice(2);
@@ -67,6 +72,19 @@ export async function bootstrap(): Promise<CliContext> {
   }
 
   return { config, rpc, wallet };
+}
+
+/** Bootstrap the wallet store for commands that only need local wallet state. */
+export function bootstrapWalletStore(): WalletCliContext {
+  if (hasLegacyWallets()) {
+    throw new Error(
+      "Wallet storage upgrade required. Run `wui` interactively once to migrate existing wallets.",
+    );
+  }
+
+  return {
+    wallet: getActiveWalletEntry(),
+  };
 }
 
 /** Print JSON output with BigInt handling. */

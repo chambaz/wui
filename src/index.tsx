@@ -11,6 +11,7 @@ import { parseArgs } from "./cli/index.js";
 import { portfolioCommand } from "./cli/portfolio.js";
 import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
+import { walletCommand } from "./cli/wallet.js";
 import type { AppConfig } from "./lib/config.js";
 
 /** Launch the interactive TUI. */
@@ -95,6 +96,7 @@ Commands:
   config       Re-run configuration setup
   portfolio    Print portfolio balances
   activity     Print recent transaction activity
+  wallet       Wallet commands: wui wallet current
   send         Send tokens: wui send <address> <amount> <token>
 
 Options:
@@ -113,6 +115,9 @@ async function main() {
       return;
     case "send":
       await sendCommand(args, json);
+      return;
+    case "wallet":
+      await walletCommand(args, json);
       return;
     case "config":
       await launchSetup(() => {
