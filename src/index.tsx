@@ -171,11 +171,22 @@ async function main() {
 }
 
 main().catch((err: unknown) => {
+  const { json } = parseArgs(process.argv);
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (json) {
+    console.log(JSON.stringify({ error: message }, null, 2));
+    if (err instanceof Error && process.env.DEBUG) {
+      console.error(err.stack);
+    }
+    process.exit(1);
+  }
+
   if (err instanceof Error) {
-    console.error(err.message);
+    console.error(message);
     if (process.env.DEBUG) console.error(err.stack);
   } else {
-    console.error(String(err));
+    console.error(message);
   }
   process.exit(1);
 });
