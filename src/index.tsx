@@ -11,10 +11,10 @@ import { parseArgs } from "./cli/index.js";
 import { portfolioCommand } from "./cli/portfolio.js";
 import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
-import { walletCommand } from "./cli/wallet.js";
-import { unwrapCommand, wrapCommand } from "./cli/wrap.js";
-import { swapCommand } from "./cli/swap.js";
-import { stakeCommand, unstakeCommand } from "./cli/stake.js";
+import { WALLET_USAGE, walletCommand } from "./cli/wallet.js";
+import { UNWRAP_USAGE, unwrapCommand, WRAP_USAGE, wrapCommand } from "./cli/wrap.js";
+import { SWAP_USAGE, swapCommand } from "./cli/swap.js";
+import { STAKE_USAGE, stakeCommand, UNSTAKE_USAGE, unstakeCommand } from "./cli/stake.js";
 import type { AppConfig } from "./lib/config.js";
 
 /** Launch the interactive TUI. */
@@ -95,23 +95,85 @@ function launchSetup(onComplete?: () => void) {
 const USAGE = `Usage: wui [command] [options]
 
 Commands:
-  (none)       Launch interactive TUI
-  config       Re-run configuration setup
+  (none)       Launch the interactive TUI
   portfolio    Print portfolio balances
   activity     Print recent transaction activity
-  wallet       Wallet commands: wui wallet <current|use>
-  wrap         Wrap native SOL: wui wrap <amount|max>
-  unwrap       Unwrap standard WSOL: wui unwrap
-  swap         Swap tokens: wui swap <amount> <from> <to>
-  stake        Stake commands: wui stake <list|native|liquid>
-  unstake      Unstake commands: wui unstake <native|liquid>
-  send         Send tokens: wui send <address> <amount> <token>
+
+  wallet       Inspect or change the active wallet
+  send         Send tokens
+  swap         Swap tokens
+  wrap         Wrap native SOL into WSOL
+  unwrap       Unwrap standard WSOL
+  stake        Stake SOL or view staking positions
+  unstake      Unstake native or liquid staking positions
+
+  config       Re-run configuration setup
 
 Options:
-  --json       Output CLI command results as JSON`;
+  --json       Output CLI command results as JSON
+  -h, --help   Show help
+
+Examples:
+  wui wallet current
+  wui wallet use Dev
+  wui send <address> 0.1 SOL
+  wui swap 0.1 SOL JitoSOL
+  wui wrap max
+  wui stake list
+
+Run \`wui <command> --help\` for command-specific help.`;
+
+const SEND_USAGE = `Usage: wui send <address> <amount> <token>
+
+Send tokens from the active wallet.
+
+Examples:
+  wui send <address> 0.1 SOL
+  wui send <address> max USDC`;
+
+function commandUsage(command: string): string {
+  switch (command) {
+    case "wallet":
+      return WALLET_USAGE;
+    case "wrap":
+      return WRAP_USAGE;
+    case "unwrap":
+      return UNWRAP_USAGE;
+    case "swap":
+      return SWAP_USAGE;
+    case "stake":
+      return STAKE_USAGE;
+    case "unstake":
+      return UNSTAKE_USAGE;
+    case "send":
+      return SEND_USAGE;
+    case "portfolio":
+      return "Usage: wui portfolio [--json]";
+    case "activity":
+      return "Usage: wui activity [--json]";
+    case "config":
+      return "Usage: wui config";
+    default:
+      return USAGE;
+  }
+}
+
+function printHelp(command: string, args: string[]): void {
+  if (command === "help") {
+    console.log(commandUsage(args[0] ?? ""));
+    return;
+  }
+
+  console.log(commandUsage(command));
+}
 
 async function main() {
-  const { command, args, json } = parseArgs(process.argv);
+  const { command, args, json, help } = parseArgs(process.argv);
+
+  if (help || command === "help") {
+    printHelp(command, args);
+    return;
+  }
 
   // Non-interactive CLI commands.
   switch (command) {
@@ -146,11 +208,6 @@ async function main() {
       await launchSetup(() => {
         console.log("Configuration updated.");
       });
-      return;
-    case "help":
-    case "--help":
-    case "-h":
-      console.log(USAGE);
       return;
     case "":
       break;

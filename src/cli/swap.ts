@@ -7,6 +7,15 @@ import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
 import type { SwapQuote, SwapQuoteRequest } from "../types/swap.js";
 import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
 
+export const SWAP_USAGE = `Usage: wui swap <amount> <from> <to>
+
+Swap an exact input amount from one token into another.
+
+Examples:
+  wui swap 0.1 SOL JitoSOL
+  wui swap 10 USDC SOL
+  wui swap 0.1 So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`;
+
 interface ResolvedDestinationToken {
   mint: string;
   symbol: string;
@@ -138,7 +147,7 @@ function buildSwapJsonResult(
 
 export async function swapCommand(args: string[], json: boolean): Promise<void> {
   if (args.length < 3) {
-    throw new Error("Usage: wui swap <amount> <from> <to>");
+    throw new Error(SWAP_USAGE);
   }
 
   const [amountArg, fromArg, toArg] = args;
