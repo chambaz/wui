@@ -1,4 +1,5 @@
 import { bootstrapWalletStore, printJson } from "./index.js";
+import { switchWalletByLabelOrPublicKey } from "../wallet/index.js";
 
 export async function walletCommand(args: string[], json: boolean): Promise<void> {
   const subcommand = args[0];
@@ -28,9 +29,31 @@ export async function walletCommand(args: string[], json: boolean): Promise<void
       console.log(`Public key: ${wallet.publicKey}`);
       return;
     }
+    case "use": {
+      const selector = args[1]?.trim();
+      if (!selector) {
+        throw new Error("Usage: wui wallet use <label|pubkey>");
+      }
+
+      bootstrapWalletStore();
+      const wallet = switchWalletByLabelOrPublicKey(selector);
+
+      if (json) {
+        printJson({
+          wallet: {
+            label: wallet.label,
+            publicKey: wallet.publicKey,
+          },
+        });
+        return;
+      }
+
+      console.log(`Active wallet: ${wallet.label} (${wallet.publicKey})`);
+      return;
+    }
     default:
       throw new Error(
-        "Usage: wui wallet current",
+        "Usage: wui wallet <current|use>",
       );
   }
 }

@@ -96,7 +96,7 @@ Commands:
   config       Re-run configuration setup
   portfolio    Print portfolio balances
   activity     Print recent transaction activity
-  wallet       Wallet commands: wui wallet current
+  wallet       Wallet commands: wui wallet <current|use>
   send         Send tokens: wui send <address> <amount> <token>
 
 Options:
