@@ -1,6 +1,6 @@
 import { DEFAULT_SLIPPAGE_PCT, executeSwap, getSwapQuote } from "../swap/index.js";
 import { isValidSolanaAddress, maxSendableSol } from "../transfer/index.js";
-import { getAssetSymbol, parseDecimalAmount, truncateAddress } from "../lib/format.js";
+import { getAssetSymbol, NATIVE_SOL_MINT, parseDecimalAmount, truncateAddress } from "../lib/format.js";
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata, searchTokens } from "../pricing/index.js";
 import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
@@ -40,12 +40,36 @@ function resolveSourceToken(
 ): TokenBalance {
   const normalizedSelector = normalizeTokenInput(selector);
 
+  const assetKindMatches = balances.filter((balance) => {
+    if (normalizedSelector === "SOL") {
+      return balance.assetKind === "native-sol";
+    }
+
+    if (normalizedSelector === "WSOL" || normalizedSelector === "WRAPPED SOL" || normalizedSelector === "WRAPPED-SOL") {
+      return balance.assetKind === "wrapped-sol";
+    }
+
+    return false;
+  });
+  if (assetKindMatches.length === 1) {
+    return assetKindMatches[0];
+  }
+
+  const accountMatches = balances.filter((balance) => balance.accountAddress === selector);
+  if (accountMatches.length === 1) {
+    return accountMatches[0];
+  }
+
   const mintMatches = balances.filter((balance) => balance.mint === selector);
   if (mintMatches.length === 1) {
     return mintMatches[0];
   }
   if (mintMatches.length > 1) {
-    throw new Error(`Token "${selector}" is ambiguous in your wallet. Use the mint address instead.`);
+    if (selector === NATIVE_SOL_MINT) {
+      throw new Error("Source token is ambiguous. Use `SOL` for native SOL or `WSOL` for wrapped SOL.");
+    }
+
+    throw new Error(`Token "${selector}" is ambiguous in your wallet. Use the token account address instead.`);
   }
 
   const symbolMatches = balances.filter((balance) => {
@@ -59,7 +83,7 @@ function resolveSourceToken(
     throw new Error(`Source token "${selector}" not found in wallet.`);
   }
   if (symbolMatches.length > 1) {
-    throw new Error(`Source token "${selector}" is ambiguous. Use the mint address instead.`);
+    throw new Error(`Source token "${selector}" is ambiguous. Use the mint or token account address instead.`);
   }
 
   return symbolMatches[0];
