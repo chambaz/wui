@@ -17,6 +17,7 @@ export interface CliArgs {
   command: string;
   args: string[];
   json: boolean;
+  help: boolean;
 }
 
 /** Bootstrap context for CLI commands that need RPC + wallet. */
@@ -35,17 +36,14 @@ export interface WalletCliContext {
 export function parseArgs(argv: string[]): CliArgs {
   const raw = argv.slice(2);
   const json = raw.includes("--json");
-
-  // Check for help flags before filtering.
-  if (raw.includes("--help") || raw.includes("-h")) {
-    return { command: "help", args: [], json: false };
-  }
+  const help = raw.includes("--help") || raw.includes("-h");
 
   const positional = raw.filter((a) => !a.startsWith("-"));
   return {
     command: positional[0] ?? "",
     args: positional.slice(1),
     json,
+    help,
   };
 }
 

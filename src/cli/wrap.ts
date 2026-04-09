@@ -3,6 +3,22 @@ import type { WrapRequest } from "../types/wrap.js";
 import { executeWrapAction, getMaxWrappableLamports, getWrapAvailability } from "../wrap/index.js";
 import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
 
+export const WRAP_USAGE = `Usage: wui wrap <amount|max>
+
+Wrap native SOL into WSOL using the standard token account.
+
+Examples:
+  wui wrap 0.1
+  wui wrap max`;
+
+export const UNWRAP_USAGE = `Usage: wui unwrap
+
+Unwrap all WSOL from the standard Wrapped SOL account.
+
+Examples:
+  wui unwrap
+  wui unwrap --json`;
+
 function getUnwrapAvailabilityErrorMessage(extraWrappedSolRawBalance: bigint): string {
   if (extraWrappedSolRawBalance > 0n) {
     return "Unwrap here only supports the standard Wrapped SOL account. This wallet's Wrapped SOL is held in a different token account.";
@@ -14,7 +30,7 @@ function getUnwrapAvailabilityErrorMessage(extraWrappedSolRawBalance: bigint): s
 export async function wrapCommand(args: string[], json: boolean): Promise<void> {
   const amountArg = args[0]?.trim();
   if (!amountArg) {
-    throw new Error("Usage: wui wrap <amount|max>");
+    throw new Error(WRAP_USAGE);
   }
 
   const { rpc, wallet } = await bootstrap();

@@ -18,6 +18,32 @@ import type { TokenBalance } from "../types/portfolio.js";
 import type { StakeAccountInfo, StakeProvider, ValidatorInfo } from "../types/staking.js";
 import { bootstrap, getCliActiveSigner, printJson, printTable } from "./index.js";
 
+export const STAKE_USAGE = `Usage: wui stake <subcommand>
+
+Subcommands:
+  list                                              Show native and liquid staking positions
+  native <amount> <validator-label|vote-account>    Create a native stake account
+  liquid <amount> <provider-id|pool-address|lst-mint>
+                                                    Deposit SOL into a liquid staking pool
+
+Examples:
+  wui stake list
+  wui stake native 0.1 "P0 Horizon"
+  wui stake liquid 0.5 jito`;
+
+export const UNSTAKE_USAGE = `Usage: wui unstake <subcommand>
+
+Subcommands:
+  native deactivate <stake-account>                 Deactivate a native stake account
+  native withdraw <stake-account> <amount|max>      Withdraw from a deactivated native stake account
+  liquid <amount|max> <provider-id|pool-address|lst-mint>
+                                                    Withdraw SOL from a liquid staking pool using LST balance
+
+Examples:
+  wui unstake native deactivate <stake-account>
+  wui unstake native withdraw <stake-account> max
+  wui unstake liquid max jito`;
+
 interface LiquidStakePosition {
   providerId: string;
   providerLabel: string;
@@ -334,7 +360,7 @@ export async function stakeCommand(args: string[], json: boolean): Promise<void>
   }
 
   throw new Error(
-    "Usage: wui stake <list|native|liquid>",
+    STAKE_USAGE,
   );
 }
 
@@ -480,6 +506,6 @@ export async function unstakeCommand(args: string[], json: boolean): Promise<voi
   }
 
   throw new Error(
-    "Usage: wui unstake <native|liquid>",
+    UNSTAKE_USAGE,
   );
 }
