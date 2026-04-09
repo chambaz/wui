@@ -1,9 +1,16 @@
-import type { Rpc, SolanaRpcApi } from "@solana/kit";
+import type { KeyPairSigner, Rpc, SolanaRpcApi } from "@solana/kit";
 import { loadConfig } from "../lib/config.js";
 import { initRpc, checkRpcHealth } from "../lib/rpc.js";
-import { getActiveWalletEntry, hasLegacyWallets } from "../wallet/index.js";
+import {
+  getActiveWalletEntry,
+  getActiveWalletSigner,
+  hasLegacyWallets,
+  unlockWallet,
+  WalletLockedError,
+} from "../wallet/index.js";
 import type { AppConfig } from "../lib/config.js";
 import type { WalletEntry } from "../types/wallet.js";
+import { promptForPassphrase } from "./prompt.js";
 
 /** Parsed CLI arguments. */
 export interface CliArgs {
@@ -85,6 +92,41 @@ export function bootstrapWalletStore(): WalletCliContext {
   return {
     wallet: getActiveWalletEntry(),
   };
+}
+
+/** Load the active wallet signer, prompting for a passphrase if needed. */
+export async function getCliActiveSigner(json: boolean): Promise<KeyPairSigner> {
+  const { wallet } = bootstrapWalletStore();
+  if (!wallet) {
+    throw new Error("No active wallet. Run `wui` and press [w] to create or import one.");
+  }
+
+  try {
+    const signer = await getActiveWalletSigner();
+    if (!signer) {
+      throw new Error("Could not load wallet signer.");
+    }
+    return signer;
+  } catch (error: unknown) {
+    if (!(error instanceof WalletLockedError)) {
+      throw error;
+    }
+
+    if (json) {
+      throw new Error(
+        "Encrypted wallets are not supported with `--json` when passphrase entry is required.",
+      );
+    }
+
+    const passphrase = await promptForPassphrase(`Enter passphrase to unlock wallet "${wallet.label}": `);
+    await unlockWallet(wallet.id, passphrase);
+
+    const signer = await getActiveWalletSigner();
+    if (!signer) {
+      throw new Error("Could not load wallet signer.");
+    }
+    return signer;
+  }
 }
 
 /** Print JSON output with BigInt handling. */
