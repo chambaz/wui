@@ -1,14 +1,16 @@
-import { bootstrapWalletStore, printJson } from "./index.js";
-import { switchWalletByLabelOrPublicKey } from "../wallet/index.js";
+import { bootstrapWalletStore, printJson, printTable } from "./index.js";
+import { listWallets, switchWalletByLabelOrPublicKey } from "../wallet/index.js";
 
 export const WALLET_USAGE = `Usage: wui wallet <subcommand>
 
 Subcommands:
   current                     Show the active wallet
+  list                        Show all available wallets
   use <label|pubkey>          Switch the active wallet by exact label or pubkey
 
 Examples:
   wui wallet current
+  wui wallet list
   wui wallet use Dev
   wui wallet use 5Utc...WSJ5`;
 
@@ -38,6 +40,34 @@ export async function walletCommand(args: string[], json: boolean): Promise<void
 
       console.log(`Label:      ${wallet.label}`);
       console.log(`Public key: ${wallet.publicKey}`);
+      return;
+    }
+    case "list": {
+      bootstrapWalletStore();
+      const wallets = listWallets();
+
+      if (json) {
+        printJson({
+          wallets: wallets.map((wallet) => ({
+            label: wallet.label,
+            publicKey: wallet.publicKey,
+            isActive: wallet.isActive,
+          })),
+        });
+        return;
+      }
+
+      if (wallets.length === 0) {
+        console.log("No wallets found.");
+        return;
+      }
+
+      const rows = wallets.map((wallet) => [
+        wallet.isActive ? "*" : "",
+        wallet.label,
+        wallet.publicKey,
+      ]);
+      printTable(["Active", "Label", "Public key"], rows, [6, 20, 44]);
       return;
     }
     case "use": {
