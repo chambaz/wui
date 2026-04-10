@@ -15,6 +15,7 @@ import { fetchTokenMetadata, searchTokens } from "../../pricing/index.js";
 import { DEFAULT_SLIPPAGE_PCT, getSwapQuote, executeSwap } from "../../swap/index.js";
 import { copyToClipboard } from "../../lib/clipboard.js";
 import { truncateAddress, formatAmount, parseDecimalAmount, timeAgo, getAssetSymbol } from "../../lib/format.js";
+import { maxSendableSol } from "../../transfer/index.js";
 import type { SelectedAssetRef, TokenBalance, TokenMetadata } from "../../types/portfolio.js";
 import type { SwapQuote, SwapResult } from "../../types/swap.js";
 
@@ -191,15 +192,22 @@ export default function SwapScreen({
 
     setLoadingQuote(true);
     setError(null);
-    try {
-      // Parse amount to raw units using string math to avoid floating-point errors.
-      let amountNum: bigint;
-      if (amountInput === "max") {
-        amountNum = sourceToken.rawBalance;
-      } else {
-        amountNum = parseDecimalAmount(amountInput, sourceToken.decimals) ?? 0n;
-        if (amountNum <= 0n) {
-          setError("Enter a valid amount greater than 0.");
+      try {
+        // Parse amount to raw units using string math to avoid floating-point errors.
+        let amountNum: bigint;
+        if (amountInput === "max") {
+          amountNum = sourceToken.isNative
+            ? maxSendableSol(sourceToken.rawBalance)
+            : sourceToken.rawBalance;
+          if (amountNum <= 0n) {
+            setError("Insufficient SOL balance (need to reserve for fees).");
+            setLoadingQuote(false);
+            return;
+          }
+        } else {
+          amountNum = parseDecimalAmount(amountInput, sourceToken.decimals) ?? 0n;
+          if (amountNum <= 0n) {
+            setError("Enter a valid amount greater than 0.");
           setLoadingQuote(false);
           return;
         }
