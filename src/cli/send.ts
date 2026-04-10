@@ -1,9 +1,78 @@
-import { parseDecimalAmount } from "../lib/format.js";
+import { getAssetSymbol, NATIVE_SOL_MINT, parseDecimalAmount } from "../lib/format.js";
 import { fetchAllBalances } from "../portfolio/index.js";
 import { fetchTokenMetadata } from "../pricing/index.js";
 import { executeTransfer, isValidSolanaAddress, maxSendableSol } from "../transfer/index.js";
+import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
 import type { TransferRequest } from "../types/transfer.js";
 import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
+
+function normalizeTokenInput(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function tokenSymbol(balance: TokenBalance, metadata: Map<string, TokenMetadata>): string {
+  return getAssetSymbol(
+    balance.assetKind,
+    balance.mint,
+    metadata.get(balance.mint)?.symbol ?? null,
+  );
+}
+
+function resolveSendToken(
+  balances: TokenBalance[],
+  metadata: Map<string, TokenMetadata>,
+  selector: string,
+): TokenBalance {
+  const normalizedSelector = normalizeTokenInput(selector);
+
+  const assetKindMatches = balances.filter((balance) => {
+    if (normalizedSelector === "SOL") {
+      return balance.assetKind === "native-sol";
+    }
+
+    if (normalizedSelector === "WSOL" || normalizedSelector === "WRAPPED SOL" || normalizedSelector === "WRAPPED-SOL") {
+      return balance.assetKind === "wrapped-sol";
+    }
+
+    return false;
+  });
+  if (assetKindMatches.length === 1) {
+    return assetKindMatches[0];
+  }
+
+  const accountMatches = balances.filter((balance) => balance.accountAddress === selector);
+  if (accountMatches.length === 1) {
+    return accountMatches[0];
+  }
+
+  const mintMatches = balances.filter((balance) => balance.mint === selector);
+  if (mintMatches.length === 1) {
+    return mintMatches[0];
+  }
+  if (mintMatches.length > 1) {
+    if (selector === NATIVE_SOL_MINT) {
+      throw new Error('Token is ambiguous. Use `SOL` for native SOL or `WSOL` for wrapped SOL.');
+    }
+
+    throw new Error(`Token "${selector}" is ambiguous in your wallet. Use the token account address instead.`);
+  }
+
+  const symbolMatches = balances.filter((balance) => {
+    const symbol = tokenSymbol(balance, metadata);
+    const metaSymbol = metadata.get(balance.mint)?.symbol ?? null;
+    return normalizeTokenInput(symbol) === normalizedSelector
+      || (metaSymbol !== null && normalizeTokenInput(metaSymbol) === normalizedSelector);
+  });
+
+  if (symbolMatches.length === 0) {
+    throw new Error(`Token "${selector}" not found in wallet.`);
+  }
+  if (symbolMatches.length > 1) {
+    throw new Error(`Token "${selector}" is ambiguous. Use the mint or token account address instead.`);
+  }
+
+  return symbolMatches[0];
+}
 
 export async function sendCommand(args: string[], json: boolean): Promise<void> {
   if (args.length < 3) {
@@ -34,17 +103,7 @@ export async function sendCommand(args: string[], json: boolean): Promise<void> 
   const mints = balances.map((b) => b.mint);
   const metadata = await fetchTokenMetadata(mints, config.jupiterApiKey);
 
-  // Match by symbol (case-insensitive) or by mint address.
-  const tokenUpper = tokenArg.toUpperCase();
-  const token = balances.find((b) => {
-    const meta = metadata.get(b.mint);
-    if (meta && meta.symbol.toUpperCase() === tokenUpper) return true;
-    return b.mint === tokenArg;
-  });
-
-  if (!token) {
-    throw new Error(`Token "${tokenArg}" not found in wallet.`);
-  }
+  const token = resolveSendToken(balances, metadata, tokenArg);
 
   // Parse amount.
   let rawAmount: bigint;
