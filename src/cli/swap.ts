@@ -12,6 +12,7 @@ export const SWAP_USAGE = `Usage: wui swap <amount> <from> <to>
 Swap an exact input amount from one token into another.
 
 Examples:
+  wui swap max SOL USDC
   wui swap 0.1 SOL JitoSOL
   wui swap 10 USDC SOL
   wui swap 0.1 So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`;
@@ -130,6 +131,22 @@ async function resolveDestinationToken(
 }
 
 function validateSwapAmount(sourceToken: TokenBalance, amountArg: string): bigint {
+  if (amountArg === "max") {
+    if (sourceToken.isNative) {
+      const max = maxSendableSol(sourceToken.rawBalance);
+      if (max === 0n) {
+        throw new Error("Insufficient SOL balance (need to reserve for fees).");
+      }
+      return max;
+    }
+
+    if (sourceToken.rawBalance <= 0n) {
+      throw new Error(`Insufficient balance. Have ${sourceToken.balance}, swapping ${amountArg}.`);
+    }
+
+    return sourceToken.rawBalance;
+  }
+
   const amount = parseDecimalAmount(amountArg, sourceToken.decimals) ?? 0n;
   if (amount <= 0n) {
     throw new Error(`Invalid amount: ${amountArg}`);
