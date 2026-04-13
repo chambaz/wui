@@ -1,13 +1,12 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   type Base64EncodedWireTransaction,
   getTransactionDecoder,
   getBase64EncodedWireTransaction,
-  signTransaction,
 } from "@solana/kit";
 import { sendAndConfirmTransaction } from "../lib/confirm.js";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import type { SwapQuote, SwapResult } from "../types/swap.js";
 import { getSwapQuote } from "./quote.js";
 import { buildSwapTransaction } from "./build.js";
@@ -15,18 +14,25 @@ import { resolveFeeAccount } from "./fees.js";
 
 async function signSwapTransaction(
   base64Transaction: string,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
 ): Promise<Base64EncodedWireTransaction> {
   const decoder = getTransactionDecoder();
   const txBytes = new Uint8Array(Buffer.from(base64Transaction, "base64"));
   const transaction = decoder.decode(txBytes);
-  const signed = await signTransaction([signer.keyPair], transaction);
-  return getBase64EncodedWireTransaction(signed);
+  const [signatures] = await signer.signTransactions([transaction]);
+  const signed = {
+    ...transaction,
+    signatures: {
+      ...(transaction.signatures ?? {}),
+      ...signatures,
+    },
+  };
+  return getBase64EncodedWireTransaction(signed as never);
 }
 
 export async function executeSwap(
   quote: SwapQuote,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   rpc: Rpc<SolanaRpcApi>,
   apiKey: string,
   onStatus?: (status: string) => void,

@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   pipe,
   createTransactionMessage,
@@ -14,6 +13,7 @@ import {
 } from "@solana/kit";
 import { sendAndConfirmTransaction } from "../lib/confirm.js";
 import { NATIVE_SOL_MINT } from "../lib/format.js";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import { buildCreateAtaInstruction } from "../transfer/ata.js";
 import { buildSolTransferInstruction } from "../transfer/instructions.js";
 import { TOKEN_PROGRAM } from "../transfer/constants.js";
@@ -23,7 +23,7 @@ import { buildCloseAccountInstruction, buildSyncNativeInstruction } from "./inst
 
 export async function executeWrapAction(
   request: WrapRequest,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   rpc: Rpc<SolanaRpcApi>,
   onStatus?: (status: string) => void,
 ): Promise<WrapResult> {

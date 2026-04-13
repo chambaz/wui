@@ -11,6 +11,7 @@ import { parseArgs } from "./cli/index.js";
 import { portfolioCommand } from "./cli/portfolio.js";
 import { activityCommand } from "./cli/activity.js";
 import { sendCommand } from "./cli/send.js";
+import { authCommand, AUTH_USAGE, runAuthSessionServer } from "./cli/auth.js";
 import { WALLET_USAGE, walletCommand } from "./cli/wallet.js";
 import { UNWRAP_USAGE, unwrapCommand, WRAP_USAGE, wrapCommand } from "./cli/wrap.js";
 import { SWAP_USAGE, swapCommand } from "./cli/swap.js";
@@ -100,6 +101,7 @@ Commands:
   activity     Print recent transaction activity
 
   wallet       Inspect or change the active wallet
+  auth         Manage same-machine CLI auth sessions
   send         Send tokens
   swap         Swap tokens
   wrap         Wrap native SOL into WSOL
@@ -115,6 +117,7 @@ Options:
 
 Examples:
   wui wallet current
+  wui auth unlock
   wui wallet use Dev
   wui send <address> 0.1 SOL
   wui swap 0.1 SOL JitoSOL
@@ -135,6 +138,8 @@ function commandUsage(command: string): string {
   switch (command) {
     case "wallet":
       return WALLET_USAGE;
+    case "auth":
+      return AUTH_USAGE;
     case "wrap":
       return WRAP_USAGE;
     case "unwrap":
@@ -189,6 +194,9 @@ async function main() {
     case "wallet":
       await walletCommand(args, json);
       return;
+    case "auth":
+      await authCommand(args, json);
+      return;
     case "wrap":
       await wrapCommand(args, json);
       return;
@@ -208,6 +216,9 @@ async function main() {
       await launchSetup(() => {
         console.log("Configuration updated.");
       });
+      return;
+    case "__auth-session-server":
+      await runAuthSessionServer(args[0] ?? "");
       return;
     case "":
       break;

@@ -1,14 +1,16 @@
-import type { KeyPairSigner, Rpc, SolanaRpcApi } from "@solana/kit";
+import type { Rpc, SolanaRpcApi } from "@solana/kit";
 import { loadConfig } from "../lib/config.js";
 import { initRpc, checkRpcHealth } from "../lib/rpc.js";
 import {
   getActiveWalletEntry,
+  getWalletSessionSigner,
   getActiveWalletSigner,
   hasLegacyWallets,
   unlockWallet,
   WalletLockedError,
 } from "../wallet/index.js";
 import type { AppConfig } from "../lib/config.js";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import type { WalletEntry } from "../types/wallet.js";
 import { promptForPassphrase } from "./prompt.js";
 
@@ -93,10 +95,15 @@ export function bootstrapWalletStore(): WalletCliContext {
 }
 
 /** Load the active wallet signer, prompting for a passphrase if needed. */
-export async function getCliActiveSigner(_json: boolean): Promise<KeyPairSigner> {
+export async function getCliActiveSigner(_json: boolean): Promise<WalletSigner> {
   const { wallet } = bootstrapWalletStore();
   if (!wallet) {
     throw new Error("No active wallet. Run `wui` and press [w] to create or import one.");
+  }
+
+  const sessionSigner = await getWalletSessionSigner(wallet.id);
+  if (sessionSigner) {
+    return sessionSigner;
   }
 
   try {

@@ -7,6 +7,20 @@ import {
   type KeyPairSigner,
 } from "@solana/kit";
 import type { WalletEntry, WalletStore } from "../types/wallet.js";
+export {
+  clearWalletSessionRuntimeArtifacts,
+  getWalletSessionMetadataPath,
+  getWalletSessionSigner,
+  getWalletSessionSocketPath,
+  getWalletSessionStatus,
+  lockWalletSession,
+  readWalletSessionMetadata,
+  startWalletSession,
+  WalletSessionError,
+  WalletSessionExpiredError,
+  WalletSessionNotActiveError,
+} from "./session.js";
+export type { WalletSessionHandle, WalletSessionMetadata, WalletSessionOptions } from "./session.js";
 
 const DATA_DIR = join(homedir(), ".wui");
 const STORE_PATH = join(DATA_DIR, "wallets.json");
@@ -478,7 +492,7 @@ function clearUnlockedWallet(walletId: string): void {
 
 function createAutoLockTimer(walletId: string): ReturnType<typeof setTimeout> {
   const timer = setTimeout(() => {
-    unlockedWallets.delete(walletId);
+    clearUnlockedWallet(walletId);
   }, AUTO_LOCK_MS);
   timer.unref();
   return timer;
