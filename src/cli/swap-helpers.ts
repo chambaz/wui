@@ -6,6 +6,7 @@ import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
 export interface ResolvedDestinationToken {
   mint: string;
   symbol: string;
+  decimals: number | null;
 }
 
 export function normalizeTokenInput(value: string): string {
@@ -93,6 +94,7 @@ export async function resolveDestinationToken(
     return {
       mint: selector,
       symbol: token?.symbol ?? truncateAddress(selector),
+      decimals: token?.decimals ?? null,
     };
   }
 
@@ -100,7 +102,11 @@ export async function resolveDestinationToken(
 
   const mintMatches = searchResults.filter((token) => token.mint === selector);
   if (mintMatches.length === 1) {
-    return { mint: mintMatches[0].mint, symbol: mintMatches[0].symbol };
+    return {
+      mint: mintMatches[0].mint,
+      symbol: mintMatches[0].symbol,
+      decimals: mintMatches[0].decimals,
+    };
   }
   if (mintMatches.length > 1) {
     throw new Error(`Destination token "${selector}" is ambiguous. Use the mint address instead.`);
@@ -113,14 +119,22 @@ export async function resolveDestinationToken(
   });
 
   if (exactMatches.length > 0) {
-    return { mint: exactMatches[0].mint, symbol: exactMatches[0].symbol };
+    return {
+      mint: exactMatches[0].mint,
+      symbol: exactMatches[0].symbol,
+      decimals: exactMatches[0].decimals,
+    };
   }
 
   if (searchResults.length === 0) {
     throw new Error(`Destination token "${selector}" not found.`);
   }
 
-  return { mint: searchResults[0].mint, symbol: searchResults[0].symbol };
+  return {
+    mint: searchResults[0].mint,
+    symbol: searchResults[0].symbol,
+    decimals: searchResults[0].decimals,
+  };
 }
 
 export function validateSwapAmount(sourceToken: TokenBalance, amountArg: string): bigint {
