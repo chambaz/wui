@@ -424,6 +424,7 @@ export default function SwapScreen({
         resolvedAllocations.push({
           mint: token.mint,
           symbol: token.symbol,
+          decimals: token.decimals,
           percent,
         });
       }

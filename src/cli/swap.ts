@@ -41,7 +41,6 @@ interface DustSwapArgs {
   destinationSelector: string;
   maxUsd: number;
   excludeSelectors: string[];
-  includeUnpriced: boolean;
 }
 
 interface SplitSwapArgs {
@@ -102,7 +101,6 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
   const destinationSelector = args[0];
   let maxUsd: number | null = null;
   const excludeSelectors: string[] = [];
-  let includeUnpriced = false;
 
   for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
@@ -134,8 +132,7 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
     }
 
     if (arg === "--include-unpriced") {
-      includeUnpriced = true;
-      continue;
+      throw new Error("`--include-unpriced` is not supported for dust swaps in v1.");
     }
 
     if (arg === "--include-sol") {
@@ -153,7 +150,6 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
     destinationSelector,
     maxUsd,
     excludeSelectors,
-    includeUnpriced,
   };
 }
 
@@ -360,7 +356,6 @@ async function dustSwapCommand(args: string[], json: boolean): Promise<void> {
     maxUsd: dustArgs.maxUsd,
     slippageBps: getSlippageBps(),
     excludeMints,
-    includeUnpriced: dustArgs.includeUnpriced,
   });
 
   const preview = await previewDustSwapPlan(plan, config.jupiterApiKey);
