@@ -1,4 +1,5 @@
 import { parseDecimalAmount } from "../lib/format.js";
+import { MIN_SOL_RESERVE_LAMPORTS } from "../transfer/constants.js";
 import { maxSendableSol } from "../transfer/index.js";
 import type { TokenBalance, TokenMetadata, TokenPrice } from "../types/portfolio.js";
 import type {
@@ -11,7 +12,9 @@ import { MAX_PRIORITY_FEE_LAMPORTS } from "./constants.js";
 
 const PERCENT_SCALE = 100;
 const PERCENT_SCALE_FACTOR = 100n;
-const MULTI_SWAP_SOL_FEE_BUFFER_LAMPORTS_PER_LEG = BigInt(MAX_PRIORITY_FEE_LAMPORTS + 1_000_000);
+const MULTI_SWAP_SOL_FEE_BUFFER_LAMPORTS_PER_LEG = MIN_SOL_RESERVE_LAMPORTS > BigInt(MAX_PRIORITY_FEE_LAMPORTS)
+  ? MIN_SOL_RESERVE_LAMPORTS
+  : BigInt(MAX_PRIORITY_FEE_LAMPORTS);
 
 export interface DustSwapPlanRequest {
   balances: TokenBalance[];
@@ -23,7 +26,6 @@ export interface DustSwapPlanRequest {
   slippageBps: number;
   excludeMints?: string[];
   includeUnpriced?: boolean;
-  includeSol?: boolean;
 }
 
 export interface SplitSwapAllocation {
@@ -194,10 +196,6 @@ function getAvailableSplitInputAmount(
 export function buildDustSwapPlan(request: DustSwapPlanRequest): MultiSwapPlan {
   if (!Number.isFinite(request.maxUsd) || request.maxUsd <= 0) {
     throw new Error("Dust threshold must be greater than 0.");
-  }
-
-  if (request.includeSol) {
-    throw new Error("Including native SOL in dust swaps is not supported in v1.");
   }
 
   const excludedMints = new Set([request.destinationMint, ...(request.excludeMints ?? [])]);

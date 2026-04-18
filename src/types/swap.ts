@@ -84,11 +84,17 @@ export interface MultiSwapLegExecutionResult {
   result: SwapResult;
 }
 
+export interface MultiSwapUnattemptedLeg {
+  leg: MultiSwapLeg;
+  reason: string;
+}
+
 export interface MultiSwapExecutionSummary {
   legsPlanned: number;
   legsSkipped: number;
   legsSucceeded: number;
   legsFailed: number;
+  legsUnattempted: number;
 }
 
 export interface MultiSwapExecutionResult {
@@ -97,4 +103,5 @@ export interface MultiSwapExecutionResult {
   summary: MultiSwapExecutionSummary;
   skipped: MultiSwapSkippedLeg[];
   legs: MultiSwapLegExecutionResult[];
+  unattempted: MultiSwapUnattemptedLeg[];
 }

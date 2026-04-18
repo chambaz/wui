@@ -13,10 +13,24 @@ function buildExecutionResult(plan: MultiSwapPlan): MultiSwapExecutionResult {
       legsSkipped: plan.summary.legsSkipped,
       legsSucceeded: 0,
       legsFailed: 0,
+      legsUnattempted: 0,
     },
     skipped: plan.skipped,
     legs: [],
+    unattempted: [],
   };
+}
+
+function markRemainingLegsUnattempted(
+  plan: MultiSwapPlan,
+  execution: MultiSwapExecutionResult,
+  startIndex: number,
+  reason: string,
+): void {
+  for (const leg of plan.legs.slice(startIndex)) {
+    execution.unattempted.push({ leg, reason });
+    execution.summary.legsUnattempted += 1;
+  }
 }
 
 function buildLegFailure(
@@ -71,6 +85,12 @@ export async function executeMultiSwapPlan(
       } else {
         execution.summary.legsFailed += 1;
         if (!plan.continueOnFailure) {
+          markRemainingLegsUnattempted(
+            plan,
+            execution,
+            leg.index + 1,
+            `Not attempted because leg ${leg.index + 1} failed.`,
+          );
           break;
         }
       }
@@ -89,6 +109,12 @@ export async function executeMultiSwapPlan(
       execution.summary.legsFailed += 1;
 
       if (!plan.continueOnFailure) {
+        markRemainingLegsUnattempted(
+          plan,
+          execution,
+          leg.index + 1,
+          `Not attempted because leg ${leg.index + 1} failed.`,
+        );
         break;
       }
     }

@@ -40,7 +40,6 @@ interface DustSwapArgs {
   maxUsd: number;
   excludeSelectors: string[];
   includeUnpriced: boolean;
-  includeSol: boolean;
 }
 
 interface QuotedPlanLeg {
@@ -128,7 +127,6 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
   let maxUsd: number | null = null;
   const excludeSelectors: string[] = [];
   let includeUnpriced = false;
-  let includeSol = false;
 
   for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
@@ -165,8 +163,7 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
     }
 
     if (arg === "--include-sol") {
-      includeSol = true;
-      continue;
+      throw new Error("`--include-sol` is not supported for dust swaps in v1.");
     }
 
     throw new Error(`Unknown swap dust option: ${arg}`);
@@ -181,14 +178,13 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
     maxUsd,
     excludeSelectors,
     includeUnpriced,
-    includeSol,
   };
 }
 
 function parseSplitAllocation(rawValue: string): Array<{ percent: number; destinationSelector: string }> {
   const entries = rawValue.split(",").map((entry) => entry.trim()).filter(Boolean);
   if (entries.length === 0) {
-    throw new Error("Split swap requires at least one allocation in `--to`.");
+    throw new Error("Split swap requires at least one allocation.");
   }
 
   return entries.map((entry) => {
@@ -448,7 +444,6 @@ async function dustSwapCommand(args: string[], json: boolean): Promise<void> {
     slippageBps: getSlippageBps(),
     excludeMints,
     includeUnpriced: dustArgs.includeUnpriced,
-    includeSol: dustArgs.includeSol,
   });
 
   const preview = await previewDustPlan(plan, config.jupiterApiKey);
@@ -561,7 +556,7 @@ async function splitSwapCommand(args: string[], json: boolean): Promise<void> {
 
   console.log();
   console.log(
-    `Split swap complete: ${execution.summary.legsSucceeded} succeeded, ${execution.summary.legsFailed} failed.`,
+    `Split swap complete: ${execution.summary.legsSucceeded} succeeded, ${execution.summary.legsFailed} failed, ${execution.summary.legsUnattempted} unattempted.`,
   );
 
   for (const legResult of execution.legs) {
@@ -570,6 +565,10 @@ async function splitSwapCommand(args: string[], json: boolean): Promise<void> {
     } else {
       console.log(`- ${legResult.leg.outputSymbol}: ${legResult.result.error}`);
     }
+  }
+
+  for (const legResult of execution.unattempted) {
+    console.log(`- ${legResult.leg.outputSymbol}: ${legResult.reason}`);
   }
 
   if (execution.summary.legsFailed > 0) {
