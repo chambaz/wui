@@ -5,19 +5,21 @@ import {
   executeMultiSwapPlan,
   executeSwap,
   getSwapQuote,
+  previewDustSwapPlan,
+  previewStrictMultiSwapPlan,
 } from "../swap/index.js";
 import { formatAmount, formatUsd, truncateAddress } from "../lib/format.js";
-import { fetchAllBalances } from "../portfolio/index.js";
-import { fetchTokenMetadata, fetchTokenPrices } from "../pricing/index.js";
-import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
-import type { MultiSwapLeg, MultiSwapPlan, SwapQuote, SwapQuoteRequest } from "../types/swap.js";
-import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
 import {
   resolveDestinationToken,
   resolveSwapSourceToken,
   tokenSymbol,
   validateSwapAmount,
-} from "./swap-helpers.js";
+} from "../lib/token-selectors.js";
+import { fetchAllBalances } from "../portfolio/index.js";
+import { fetchTokenMetadata, fetchTokenPrices } from "../pricing/index.js";
+import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";
+import type { MultiSwapPreviewResult, SwapQuote, SwapQuoteRequest } from "../types/swap.js";
+import { bootstrap, getCliActiveSigner, printJson } from "./index.js";
 
 export const SWAP_USAGE = `Usage: wui swap <amount> <from> <to>
        wui swap dust <to> --max-usd <amount> [options]
@@ -42,16 +44,6 @@ interface DustSwapArgs {
   includeUnpriced: boolean;
 }
 
-interface QuotedPlanLeg {
-  leg: MultiSwapLeg;
-  quote: SwapQuote;
-}
-
-interface DustPreviewResult {
-  executionPlan: MultiSwapPlan;
-  previewLegs: QuotedPlanLeg[];
-}
-
 interface SplitSwapArgs {
   amountArg: string;
   sourceSelector: string;
@@ -68,11 +60,6 @@ interface ResolvedSplitAllocation {
   decimals: number | null;
 }
 
-interface SplitPreviewResult {
-  executionPlan: MultiSwapPlan;
-  previewLegs: QuotedPlanLeg[];
-}
-
 function getSlippageBps(): number {
   const slippagePct = parseFloat(DEFAULT_SLIPPAGE_PCT);
   return Math.round(slippagePct * 10) * 10;
@@ -87,17 +74,6 @@ function buildSwapJsonResult(
     ...result,
     inputSymbol: sourceSymbol,
     outputSymbol: destinationSymbol,
-  };
-}
-
-function buildSkippedLegFromPlan(leg: MultiSwapLeg, reason: string) {
-  return {
-    inputMint: leg.inputMint,
-    outputMint: leg.outputMint,
-    inputSymbol: leg.inputSymbol,
-    outputSymbol: leg.outputSymbol,
-    requestedInAmount: leg.requestedInAmount,
-    reason,
   };
 }
 
@@ -228,68 +204,9 @@ function parseSplitSwapArgs(args: string[]): SplitSwapArgs {
   };
 }
 
-async function previewDustPlan(
-  plan: MultiSwapPlan,
-  apiKey: string,
-): Promise<DustPreviewResult> {
-  const previewLegs: QuotedPlanLeg[] = [];
-  const executionLegs: MultiSwapLeg[] = [];
-  const skipped = [...plan.skipped];
-
-  for (const leg of plan.legs) {
-    try {
-      const quote = await getSwapQuote(leg.quoteRequest, apiKey);
-      previewLegs.push({ leg, quote });
-      executionLegs.push(leg);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      skipped.push(buildSkippedLegFromPlan(leg, message));
-    }
-  }
-
-  if (executionLegs.length === 0) {
-    throw new Error("No routable dust swaps found. Try a different destination token or threshold.");
-  }
-
-  return {
-    previewLegs,
-    executionPlan: {
-      ...plan,
-      summary: {
-        legsPlanned: executionLegs.length,
-        legsSkipped: skipped.length,
-      },
-      legs: executionLegs,
-      skipped,
-    },
-  };
-}
-
-async function previewSplitPlan(
-  plan: MultiSwapPlan,
-  apiKey: string,
-): Promise<SplitPreviewResult> {
-  const previewLegs: QuotedPlanLeg[] = [];
-
-  for (const leg of plan.legs) {
-    try {
-      const quote = await getSwapQuote(leg.quoteRequest, apiKey);
-      previewLegs.push({ leg, quote });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Could not quote split leg ${leg.index + 1} (${leg.outputSymbol}): ${message}`);
-    }
-  }
-
-  return {
-    executionPlan: plan,
-    previewLegs,
-  };
-}
-
 function printDustPreview(
   maxUsd: number,
-  preview: DustPreviewResult,
+  preview: MultiSwapPreviewResult,
   inputDecimals: Map<string, number>,
   outputDecimals: number,
 ): void {
@@ -324,7 +241,7 @@ function printDustPreview(
 
 function printSplitPreview(
   sourceSymbol: string,
-  preview: SplitPreviewResult,
+  preview: MultiSwapPreviewResult,
   inputDecimals: number,
   outputDecimals: Map<string, number>,
 ): void {
@@ -359,7 +276,7 @@ function buildDustJsonResult(
   destinationMint: string,
   destinationSymbol: string,
   maxUsd: number,
-  preview: DustPreviewResult,
+  preview: MultiSwapPreviewResult,
   execution: Awaited<ReturnType<typeof executeMultiSwapPlan>>,
 ) {
   return {
@@ -390,7 +307,7 @@ function buildSplitJsonResult(
   amountArg: string,
   sourceMint: string,
   sourceSymbol: string,
-  preview: SplitPreviewResult,
+  preview: MultiSwapPreviewResult,
   execution: Awaited<ReturnType<typeof executeMultiSwapPlan>>,
 ) {
   return {
@@ -446,7 +363,7 @@ async function dustSwapCommand(args: string[], json: boolean): Promise<void> {
     includeUnpriced: dustArgs.includeUnpriced,
   });
 
-  const preview = await previewDustPlan(plan, config.jupiterApiKey);
+  const preview = await previewDustSwapPlan(plan, config.jupiterApiKey);
   const inputDecimals = new Map(
     balances.map((balance) => [balance.mint, getTokenDecimals(balance, metadata)]),
   );
@@ -524,7 +441,7 @@ async function splitSwapCommand(args: string[], json: boolean): Promise<void> {
     slippageBps: getSlippageBps(),
   });
 
-  const preview = await previewSplitPlan(plan, config.jupiterApiKey);
+  const preview = await previewStrictMultiSwapPlan(plan, config.jupiterApiKey);
   const outputDecimals = new Map(
     resolvedAllocations.map((allocation) => [allocation.mint, allocation.decimals ?? 6]),
   );

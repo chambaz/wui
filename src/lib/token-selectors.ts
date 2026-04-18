@@ -1,4 +1,9 @@
-import { getAssetSymbol, NATIVE_SOL_MINT, parseDecimalAmount, truncateAddress } from "../lib/format.js";
+import {
+  getAssetSymbol,
+  NATIVE_SOL_MINT,
+  parseDecimalAmount,
+  truncateAddress,
+} from "./format.js";
 import { fetchTokenMetadata, searchTokens } from "../pricing/index.js";
 import { isValidSolanaAddress, maxSendableSol } from "../transfer/index.js";
 import type { TokenBalance, TokenMetadata } from "../types/portfolio.js";

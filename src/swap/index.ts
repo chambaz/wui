@@ -7,3 +7,4 @@ export {
   getMultiSwapSolFeeBufferLamports,
 } from "./plan.js";
 export { executeMultiSwapPlan } from "./multi-execute.js";
+export { previewDustSwapPlan, previewStrictMultiSwapPlan } from "./preview.js";

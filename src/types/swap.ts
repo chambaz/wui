@@ -84,6 +84,16 @@ export interface MultiSwapLegExecutionResult {
   result: SwapResult;
 }
 
+export interface MultiSwapPreviewLeg {
+  leg: MultiSwapLeg;
+  quote: SwapQuote;
+}
+
+export interface MultiSwapPreviewResult {
+  executionPlan: MultiSwapPlan;
+  previewLegs: MultiSwapPreviewLeg[];
+}
+
 export interface MultiSwapUnattemptedLeg {
   leg: MultiSwapLeg;
   reason: string;
