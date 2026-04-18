@@ -1,6 +1,7 @@
 import {
   DEFAULT_SLIPPAGE_PCT,
   buildDustSwapPlan,
+  buildSplitSwapPlan,
   executeMultiSwapPlan,
   executeSwap,
   getSwapQuote,
@@ -20,6 +21,7 @@ import {
 
 export const SWAP_USAGE = `Usage: wui swap <amount> <from> <to>
        wui swap dust <to> --max-usd <amount> [options]
+       wui swap split <amount> <from> <pct:token,pct:token,...>
 
 Swap an exact input amount from one token into another.
 
@@ -29,7 +31,9 @@ Examples:
   wui swap 10 USDC SOL
   wui swap 0.1 So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
   wui swap dust SOL --max-usd 5
-  wui swap dust USDC --max-usd 3 --exclude USDT,JitoSOL`;
+  wui swap dust USDC --max-usd 3 --exclude USDT,JitoSOL
+  wui swap split 1 SOL 50:JitoSOL,30:mSOL,20:JupSOL
+  wui swap split max USDC 70:SOL,30:JitoSOL`;
 
 interface DustSwapArgs {
   destinationSelector: string;
@@ -39,14 +43,35 @@ interface DustSwapArgs {
   includeSol: boolean;
 }
 
-interface QuotedDustLeg {
+interface QuotedPlanLeg {
   leg: MultiSwapLeg;
   quote: SwapQuote;
 }
 
 interface DustPreviewResult {
   executionPlan: MultiSwapPlan;
-  previewLegs: QuotedDustLeg[];
+  previewLegs: QuotedPlanLeg[];
+}
+
+interface SplitSwapArgs {
+  amountArg: string;
+  sourceSelector: string;
+  allocations: Array<{
+    percent: number;
+    destinationSelector: string;
+  }>;
+}
+
+interface ResolvedSplitAllocation {
+  percent: number;
+  mint: string;
+  symbol: string;
+  decimals: number | null;
+}
+
+interface SplitPreviewResult {
+  executionPlan: MultiSwapPlan;
+  previewLegs: QuotedPlanLeg[];
 }
 
 function getSlippageBps(): number {
@@ -160,11 +185,58 @@ function parseDustSwapArgs(args: string[]): DustSwapArgs {
   };
 }
 
+function parseSplitAllocation(rawValue: string): Array<{ percent: number; destinationSelector: string }> {
+  const entries = rawValue.split(",").map((entry) => entry.trim()).filter(Boolean);
+  if (entries.length === 0) {
+    throw new Error("Split swap requires at least one allocation in `--to`.");
+  }
+
+  return entries.map((entry) => {
+    const separatorIndex = entry.indexOf(":");
+    if (separatorIndex <= 0 || separatorIndex === entry.length - 1) {
+      throw new Error(`Invalid split allocation: ${entry}`);
+    }
+
+    const percent = Number(entry.slice(0, separatorIndex));
+    const destinationSelector = entry.slice(separatorIndex + 1).trim();
+    if (!Number.isFinite(percent) || percent <= 0) {
+      throw new Error(`Invalid split allocation percentage: ${entry}`);
+    }
+    if (destinationSelector.length === 0) {
+      throw new Error(`Invalid split allocation destination: ${entry}`);
+    }
+
+    return {
+      percent,
+      destinationSelector,
+    };
+  });
+}
+
+function parseSplitSwapArgs(args: string[]): SplitSwapArgs {
+  if (args.length < 3) {
+    throw new Error(SWAP_USAGE);
+  }
+
+  const [amountArg, sourceSelector, allocationsArg, ...rest] = args;
+  if (rest.length > 0) {
+    throw new Error(`Unknown swap split option: ${rest[0]}`);
+  }
+
+  const allocations = parseSplitAllocation(allocationsArg);
+
+  return {
+    amountArg,
+    sourceSelector,
+    allocations,
+  };
+}
+
 async function previewDustPlan(
   plan: MultiSwapPlan,
   apiKey: string,
 ): Promise<DustPreviewResult> {
-  const previewLegs: QuotedDustLeg[] = [];
+  const previewLegs: QuotedPlanLeg[] = [];
   const executionLegs: MultiSwapLeg[] = [];
   const skipped = [...plan.skipped];
 
@@ -194,6 +266,28 @@ async function previewDustPlan(
       legs: executionLegs,
       skipped,
     },
+  };
+}
+
+async function previewSplitPlan(
+  plan: MultiSwapPlan,
+  apiKey: string,
+): Promise<SplitPreviewResult> {
+  const previewLegs: QuotedPlanLeg[] = [];
+
+  for (const leg of plan.legs) {
+    try {
+      const quote = await getSwapQuote(leg.quoteRequest, apiKey);
+      previewLegs.push({ leg, quote });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Could not quote split leg ${leg.index + 1} (${leg.outputSymbol}): ${message}`);
+    }
+  }
+
+  return {
+    executionPlan: plan,
+    previewLegs,
   };
 }
 
@@ -232,6 +326,39 @@ function printDustPreview(
   console.log();
 }
 
+function printSplitPreview(
+  sourceSymbol: string,
+  preview: SplitPreviewResult,
+  inputDecimals: number,
+  outputDecimals: Map<string, number>,
+): void {
+  const totalRequestedInAmount = preview.previewLegs.reduce(
+    (sum, item) => sum + BigInt(item.leg.requestedInAmount),
+    0n,
+  );
+
+  console.log(`Split swap plan from ${sourceSymbol}`);
+  console.log(`Planned: ${preview.executionPlan.summary.legsPlanned} swap(s)`);
+  console.log();
+
+  for (const { leg, quote } of preview.previewLegs) {
+    const decimals = outputDecimals.get(leg.outputMint) ?? 6;
+    const percentBps = totalRequestedInAmount === 0n
+      ? 0n
+      : (BigInt(leg.requestedInAmount) * 10_000n) / totalRequestedInAmount;
+    const percent = `${Number(percentBps) / 100}`;
+    console.log(
+      `${leg.index + 1}. ${formatAmount(quote.inAmount, inputDecimals)} ${sourceSymbol}`
+      + ` -> ${formatAmount(quote.outAmount, decimals)} ${leg.outputSymbol}`
+      + ` (${percent}%)`,
+    );
+  }
+
+  console.log();
+  console.log("This plan executes as separate swap transactions and stops on the first failed leg.");
+  console.log();
+}
+
 function buildDustJsonResult(
   destinationMint: string,
   destinationSymbol: string,
@@ -248,6 +375,36 @@ function buildDustJsonResult(
     preview: {
       summary: preview.executionPlan.summary,
       skipped: preview.executionPlan.skipped,
+      legs: preview.previewLegs.map(({ leg, quote }) => ({
+        index: leg.index,
+        inputMint: leg.inputMint,
+        outputMint: leg.outputMint,
+        inputSymbol: leg.inputSymbol,
+        outputSymbol: leg.outputSymbol,
+        inAmount: quote.inAmount,
+        outAmount: quote.outAmount,
+        priceImpactPct: quote.priceImpactPct,
+      })),
+    },
+    execution,
+  };
+}
+
+function buildSplitJsonResult(
+  amountArg: string,
+  sourceMint: string,
+  sourceSymbol: string,
+  preview: SplitPreviewResult,
+  execution: Awaited<ReturnType<typeof executeMultiSwapPlan>>,
+) {
+  return {
+    mode: "split",
+    amount: amountArg,
+    sourceMint,
+    sourceSymbol,
+    sequential: true,
+    preview: {
+      summary: preview.executionPlan.summary,
       legs: preview.previewLegs.map(({ leg, quote }) => ({
         index: leg.index,
         inputMint: leg.inputMint,
@@ -343,6 +500,83 @@ async function dustSwapCommand(args: string[], json: boolean): Promise<void> {
   }
 }
 
+async function splitSwapCommand(args: string[], json: boolean): Promise<void> {
+  const splitArgs = parseSplitSwapArgs(args);
+  const { config, rpc, wallet } = await bootstrap();
+
+  const balances = await fetchAllBalances(rpc, wallet.publicKey);
+  const metadata = await fetchTokenMetadata([...new Set(balances.map((balance) => balance.mint))], config.jupiterApiKey);
+
+  const sourceToken = resolveSwapSourceToken(balances, metadata, splitArgs.sourceSelector);
+  const sourceSymbol = tokenSymbol(sourceToken, metadata);
+
+  const resolvedAllocations: ResolvedSplitAllocation[] = [];
+  for (const allocation of splitArgs.allocations) {
+    const token = await resolveDestinationToken(allocation.destinationSelector, config.jupiterApiKey);
+    resolvedAllocations.push({
+      percent: allocation.percent,
+      mint: token.mint,
+      symbol: token.symbol,
+      decimals: token.decimals,
+    });
+  }
+
+  const plan = buildSplitSwapPlan({
+    sourceToken,
+    sourceSymbol,
+    amountArg: splitArgs.amountArg,
+    allocations: resolvedAllocations,
+    slippageBps: getSlippageBps(),
+  });
+
+  const preview = await previewSplitPlan(plan, config.jupiterApiKey);
+  const outputDecimals = new Map(
+    resolvedAllocations.map((allocation) => [allocation.mint, allocation.decimals ?? 6]),
+  );
+
+  if (!json) {
+    printSplitPreview(sourceSymbol, preview, sourceToken.decimals, outputDecimals);
+    console.log(`Executing ${preview.executionPlan.summary.legsPlanned} split swap(s)...`);
+  }
+
+  const signer = await getCliActiveSigner(json);
+  const execution = await executeMultiSwapPlan(
+    preview.executionPlan,
+    signer,
+    rpc,
+    config.jupiterApiKey,
+    json ? undefined : (status) => console.log(status),
+  );
+
+  if (json) {
+    printJson(buildSplitJsonResult(
+      splitArgs.amountArg,
+      sourceToken.mint,
+      sourceSymbol,
+      preview,
+      execution,
+    ));
+    return;
+  }
+
+  console.log();
+  console.log(
+    `Split swap complete: ${execution.summary.legsSucceeded} succeeded, ${execution.summary.legsFailed} failed.`,
+  );
+
+  for (const legResult of execution.legs) {
+    if (legResult.result.success) {
+      console.log(`- ${legResult.leg.outputSymbol}: ${legResult.result.signature}`);
+    } else {
+      console.log(`- ${legResult.leg.outputSymbol}: ${legResult.result.error}`);
+    }
+  }
+
+  if (execution.summary.legsFailed > 0) {
+    throw new Error("Split swap did not complete fully.");
+  }
+}
+
 async function singleSwapCommand(args: string[], json: boolean): Promise<void> {
   if (args.length < 3) {
     throw new Error(SWAP_USAGE);
@@ -395,6 +629,11 @@ async function singleSwapCommand(args: string[], json: boolean): Promise<void> {
 export async function swapCommand(args: string[], json: boolean): Promise<void> {
   if (args[0] === "dust") {
     await dustSwapCommand(args.slice(1), json);
+    return;
+  }
+
+  if (args[0] === "split") {
+    await splitSwapCommand(args.slice(1), json);
     return;
   }
 

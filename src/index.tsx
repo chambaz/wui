@@ -119,6 +119,7 @@ Examples:
   wui send <address> 0.1 SOL
   wui swap 0.1 SOL JitoSOL
   wui swap dust SOL --max-usd 5
+  wui swap split 1 SOL 50:JitoSOL,30:mSOL,20:JupSOL
   wui wrap max
   wui stake list
 
