@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   pipe,
   createTransactionMessage,
@@ -13,6 +12,7 @@ import {
   getBase64EncodedWireTransaction,
 } from "@solana/kit";
 import { sendAndConfirmTransaction } from "../lib/confirm.js";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import type { TransferRequest, TransferResult } from "../types/transfer.js";
 import { MIN_SOL_RESERVE_LAMPORTS } from "./constants.js";
 import { getAssociatedTokenAddress, accountExists, buildCreateAtaInstruction } from "./ata.js";
@@ -21,7 +21,7 @@ import { buildSolTransferInstruction, buildTokenTransferInstruction } from "./in
 
 export async function executeTransfer(
   request: TransferRequest,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   rpc: Rpc<SolanaRpcApi>,
   onStatus?: (status: string) => void,
 ): Promise<TransferResult> {

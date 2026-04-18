@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   generateKeyPairSigner,
   getAddressEncoder,
@@ -20,6 +19,7 @@ import {
   getU64Encoder,
   getStructEncoder,
 } from "@solana/kit";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import { ATA_PROGRAM, STAKE_POOL_PROGRAM, SYSTEM_PROGRAM, TOKEN_PROGRAM } from "./constants.js";
 import { sendAndConfirm } from "./confirm.js";
 
@@ -177,7 +177,7 @@ export async function fetchStakePoolInfo(
 
 export async function depositToStakePool(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   stakePoolAddress: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
@@ -249,7 +249,7 @@ export async function depositToStakePool(
 
 export async function withdrawSolFromStakePool(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   stakePoolAddress: string,
   poolTokens: bigint,
   onStatus?: (status: string) => void,

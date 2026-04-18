@@ -1,7 +1,6 @@
 import {
   type Rpc,
   type SolanaRpcApi,
-  type KeyPairSigner,
   address,
   generateKeyPairSigner,
   pipe,
@@ -20,12 +19,13 @@ import {
   getWithdrawInstruction,
 } from "@solana-program/stake";
 import { getCreateAccountInstruction } from "@solana-program/system";
+import type { WalletSigner } from "../types/wallet-signer.js";
 import { STAKE_ACCOUNT_SIZE, SYSTEM_PROGRAM } from "./constants.js";
 import { sendAndConfirm } from "./confirm.js";
 
 export async function createNativeStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   validatorVoteAccount: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
@@ -76,7 +76,7 @@ export async function createNativeStake(
 
 export async function deactivateStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   stakeAccountAddress: string,
   onStatus?: (status: string) => void,
 ): Promise<string> {
@@ -99,7 +99,7 @@ export async function deactivateStake(
 
 export async function withdrawStake(
   rpc: Rpc<SolanaRpcApi>,
-  signer: KeyPairSigner,
+  signer: WalletSigner,
   stakeAccountAddress: string,
   lamports: bigint,
   onStatus?: (status: string) => void,
