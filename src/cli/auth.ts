@@ -85,13 +85,15 @@ function expiresInSeconds(idleExpiresAt: string, maxExpiresAt: string): number {
 
 async function currentSessionSummary(activeWalletId: string) {
   const session = await getWalletSessionStatus();
-  if (!session || session.walletId !== activeWalletId) {
+  if (!session) {
     return null;
   }
 
   return {
+    walletId: session.walletId,
     walletLabel: session.walletLabel,
     publicKey: session.publicKey,
+    matchesActiveWallet: session.walletId === activeWalletId,
     expiresInSeconds: expiresInSeconds(session.idleExpiresAt, session.maxExpiresAt),
   };
 }
@@ -201,6 +203,10 @@ export async function authCommand(args: string[], json: boolean): Promise<void> 
           session: session
             ? {
                 active: true,
+                walletId: session.walletId,
+                walletLabel: session.walletLabel,
+                publicKey: session.publicKey,
+                matchesActiveWallet: session.matchesActiveWallet,
                 expiresInSeconds: session.expiresInSeconds,
               }
             : {
@@ -213,6 +219,13 @@ export async function authCommand(args: string[], json: boolean): Promise<void> 
 
       if (!session) {
         console.log("No active CLI auth session.");
+        return;
+      }
+
+      if (!session.matchesActiveWallet) {
+        console.log(
+          `CLI auth session active for ${session.walletLabel} while the current active wallet is ${wallet.label} (expires in ${session.expiresInSeconds}s).`,
+        );
         return;
       }
 
@@ -276,6 +289,9 @@ export async function runAuthSessionServer(walletId: string): Promise<void> {
       inactivityTimeoutMs: message.inactivityTimeoutMs,
       maxLifetimeMs: message.maxLifetimeMs,
       keepProcessAlive: true,
+      onClose: () => {
+        process.exit(0);
+      },
     });
 
     process.send?.({
@@ -289,7 +305,6 @@ export async function runAuthSessionServer(walletId: string): Promise<void> {
 
     const close = async () => {
       await handle.close();
-      process.exit(0);
     };
 
     process.on("SIGTERM", () => {

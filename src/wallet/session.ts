@@ -92,6 +92,7 @@ export interface WalletSessionOptions {
   inactivityTimeoutMs: number;
   maxLifetimeMs: number;
   keepProcessAlive?: boolean;
+  onClose?: () => void | Promise<void>;
 }
 
 export interface WalletSessionHandle {
@@ -462,6 +463,8 @@ export async function startWalletSession(options: WalletSessionOptions): Promise
         });
       });
     }
+
+    await options.onClose?.();
   }
 
   function scheduleExpiry(): void {
