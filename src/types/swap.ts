@@ -42,3 +42,59 @@ export interface SwapResult {
   outAmount: string;
   error: string | null;
 }
+
+export type MultiSwapMode = "dust" | "split";
+
+export interface MultiSwapLeg {
+  index: number;
+  inputMint: string;
+  outputMint: string;
+  inputSymbol: string;
+  outputSymbol: string;
+  requestedInAmount: string;
+  quoteRequest: SwapQuoteRequest;
+}
+
+export interface MultiSwapSkippedLeg {
+  inputMint: string;
+  outputMint: string;
+  inputSymbol: string;
+  outputSymbol: string;
+  requestedInAmount: string;
+  reason: string;
+}
+
+export interface MultiSwapPlanSummary {
+  legsPlanned: number;
+  legsSkipped: number;
+}
+
+export interface MultiSwapPlan {
+  mode: MultiSwapMode;
+  sequential: true;
+  continueOnFailure: boolean;
+  summary: MultiSwapPlanSummary;
+  legs: MultiSwapLeg[];
+  skipped: MultiSwapSkippedLeg[];
+}
+
+export interface MultiSwapLegExecutionResult {
+  leg: MultiSwapLeg;
+  quote: SwapQuote | null;
+  result: SwapResult;
+}
+
+export interface MultiSwapExecutionSummary {
+  legsPlanned: number;
+  legsSkipped: number;
+  legsSucceeded: number;
+  legsFailed: number;
+}
+
+export interface MultiSwapExecutionResult {
+  mode: MultiSwapMode;
+  sequential: true;
+  summary: MultiSwapExecutionSummary;
+  skipped: MultiSwapSkippedLeg[];
+  legs: MultiSwapLegExecutionResult[];
+}

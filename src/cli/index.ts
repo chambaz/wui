@@ -38,10 +38,21 @@ export function parseArgs(argv: string[]): CliArgs {
   const json = raw.includes("--json");
   const help = raw.includes("--help") || raw.includes("-h");
 
-  const positional = raw.filter((a) => !a.startsWith("-"));
+  const filtered = raw.filter((arg) => arg !== "--json" && arg !== "--help" && arg !== "-h");
+  const commandIndex = filtered.findIndex((arg) => !arg.startsWith("-"));
+
+  if (commandIndex === -1) {
+    return {
+      command: "",
+      args: [],
+      json,
+      help,
+    };
+  }
+
   return {
-    command: positional[0] ?? "",
-    args: positional.slice(1),
+    command: filtered[commandIndex] ?? "",
+    args: filtered.slice(commandIndex + 1),
     json,
     help,
   };
