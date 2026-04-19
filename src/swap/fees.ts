@@ -1,17 +1,31 @@
 import { type Rpc, type SolanaRpcApi, address, getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
-import { ATA_PROGRAM, FEE_WALLET_ADDRESS, TOKEN_PROGRAM } from "./constants.js";
+import { JUPITER_REFERRAL_PROGRAM, REFERRAL_ACCOUNT_ADDRESS } from "./constants.js";
 
-async function deriveFeeTokenAccount(mint: string): Promise<string> {
+const REFERRAL_ATA_SEED = "referral_ata";
+
+interface FeeAccountCandidate {
+  mint: string;
+  account: string;
+  exists: boolean;
+}
+
+export interface ResolvedFeeAccount {
+  feeAccount: string | null;
+  feeMint: string | null;
+  candidates: FeeAccountCandidate[];
+}
+
+async function deriveReferralTokenAccount(mint: string): Promise<string> {
   const encoder = getAddressEncoder();
-  const [ata] = await getProgramDerivedAddress({
-    programAddress: address(ATA_PROGRAM),
+  const [referralTokenAccount] = await getProgramDerivedAddress({
+    programAddress: address(JUPITER_REFERRAL_PROGRAM),
     seeds: [
-      encoder.encode(address(FEE_WALLET_ADDRESS)),
-      encoder.encode(address(TOKEN_PROGRAM)),
+      new TextEncoder().encode(REFERRAL_ATA_SEED),
+      encoder.encode(address(REFERRAL_ACCOUNT_ADDRESS)),
       encoder.encode(address(mint)),
     ],
   });
-  return ata;
+  return referralTokenAccount;
 }
 
 async function feeAccountExists(rpc: Rpc<SolanaRpcApi>, accountAddress: string): Promise<boolean> {
@@ -28,16 +42,64 @@ async function feeAccountExists(rpc: Rpc<SolanaRpcApi>, accountAddress: string):
   }
 }
 
+async function resolveCandidate(
+  rpc: Rpc<SolanaRpcApi>,
+  mint: string,
+): Promise<FeeAccountCandidate> {
+  const account = await deriveReferralTokenAccount(mint);
+  const exists = await feeAccountExists(rpc, account);
+  return { mint, account, exists };
+}
+
 export async function resolveFeeAccount(
   rpc: Rpc<SolanaRpcApi>,
+  inputMint: string,
   outputMint: string,
-): Promise<string | null> {
-  if (FEE_WALLET_ADDRESS.startsWith("TODO")) return null;
+): Promise<ResolvedFeeAccount> {
+  if (REFERRAL_ACCOUNT_ADDRESS.startsWith("TODO")) {
+    return {
+      feeAccount: null,
+      feeMint: null,
+      candidates: [],
+    };
+  }
+
   try {
-    const ata = await deriveFeeTokenAccount(outputMint);
-    const exists = await feeAccountExists(rpc, ata);
-    return exists ? ata : null;
+    const candidates: FeeAccountCandidate[] = [];
+    const outputCandidate = await resolveCandidate(rpc, outputMint);
+    candidates.push(outputCandidate);
+
+    if (outputCandidate.exists) {
+      return {
+        feeAccount: outputCandidate.account,
+        feeMint: outputCandidate.mint,
+        candidates,
+      };
+    }
+
+    if (inputMint !== outputMint) {
+      const inputCandidate = await resolveCandidate(rpc, inputMint);
+      candidates.push(inputCandidate);
+
+      if (inputCandidate.exists) {
+        return {
+          feeAccount: inputCandidate.account,
+          feeMint: inputCandidate.mint,
+          candidates,
+        };
+      }
+    }
+
+    return {
+      feeAccount: null,
+      feeMint: null,
+      candidates,
+    };
   } catch {
-    return null;
+    return {
+      feeAccount: null,
+      feeMint: null,
+      candidates: [],
+    };
   }
 }

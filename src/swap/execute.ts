@@ -33,7 +33,8 @@ export async function executeSwap(
 ): Promise<SwapResult> {
   let currentStep = "resolving fee account";
   try {
-    const feeAccount = await resolveFeeAccount(rpc, quote.outputMint);
+    const feeResolution = await resolveFeeAccount(rpc, quote.inputMint, quote.outputMint);
+    const feeAccount = feeResolution.feeAccount;
 
     let activeQuote = quote;
     if (!feeAccount) {
